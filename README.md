@@ -158,8 +158,8 @@ Verify all remote assets before deleting only this project directory.
 ## Synchronized Chinese and English LaTeX reports
 
 `reports/Task1_Report_CN.tex` is a standalone source with Chinese text,
-formulas and nine inline TikZ/PGFPlots figure groups covering both tasks. Its compiled PDF is
-`reports/Task1_Report_CN.pdf` (20 pages). Compilation and editing instructions
+formulas and ten inline TikZ/PGFPlots figure groups covering both tasks. Its compiled PDF is
+`reports/Task1_Report_CN.pdf` (21 pages). Compilation and editing instructions
 are in `reports/LATEX_CN_README.md`. The existing source is standalone: it
 can compile without deleted figures or CSV files. The current source is the reviewed complete report. Edit it in place, update the
 reviewed translation in `report_task2_content.py` or `report_translations.py`,
@@ -168,7 +168,7 @@ The legacy Chinese Task 1 generator refuses to overwrite a source containing Tas
 
 The English source is `reports/Task1_Report.tex`, translated from the reviewed
 Chinese source by `scripts/build_task1_report.py`. Its compiled output is
-`reports/Task1_Report.pdf` (20 pages). Content changes must be made in both
+`reports/Task1_Report.pdf` (21 pages). Content changes must be made in both
 languages: update `report_translations.py` or `report_task2_content.py` and their reviewed content.
 The build stops if a reviewed Chinese paragraph changes without this review.
 Both reports embed the same chart values; neither needs deleted CSV files to
@@ -662,3 +662,29 @@ three trained thresholds, not an arbitrary continuous rainfall threshold.
 
 Submission deadline: 18 October 2026. The assignment originally asks for student IDs;
 the present PDFs omit them following the group's explicit preference.
+
+
+## Final-model ROC and PR curves
+
+After completing the benchmark, recover curves for the validation-selected
+0, 5 and 25 mm models without refitting. Run on the existing gpushare project:
+
+```bash
+PYTHONPATH=.runtime/python python scripts/task2_curves.py
+```
+
+The runner uses the existing two-CPU, low-priority, monitored Spark configuration.
+It loads cached complete 2024 test vectors and the saved pipelines, verifies that
+exact ROC-AUC/PR-AUC agree with the original evaluation, and collects bounded
+curve coordinates. Curve reduction preserves actual points and checks displayed
+area against exact AUC (absolute error at most 0.0001 and relative error at most
+0.2%). The temporary curve JSON lives in the ignored work directory.
+
+To embed those coordinates in the existing bilingual LaTeX reports:
+
+```bash
+python scripts/build_task2_curve_report.py --curves-dir work/task2/model_comparison/curves
+```
+
+Use the compilation commands above to regenerate both PDFs. This operation
+changes neither trained models nor their training sample.

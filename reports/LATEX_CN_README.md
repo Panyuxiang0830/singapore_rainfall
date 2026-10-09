@@ -1,8 +1,8 @@
 # 中英文完整项目报告（LaTeX → PDF）
 
 `Task1_Report_CN.tex` 与 `Task1_Report.tex` 保留旧文件名，但现已覆盖 Task 1 和 Task 2。
-对应 PDF 为 `Task1_Report_CN.pdf` 与 `Task1_Report.pdf`，各 20 页。
-九组图表直接内嵌 TikZ/PGFPlots 数值，不依赖单独图片或统计 CSV。
+对应 PDF 为 `Task1_Report_CN.pdf` 与 `Task1_Report.pdf`，各 21 页。
+十组图表直接内嵌 TikZ/PGFPlots 数值，不依赖单独图片或统计 CSV。
 成员署名为潘禹翔、侯佳成、吴嘉蕊，按小组要求不列学号。
 
 ## 编辑与编译

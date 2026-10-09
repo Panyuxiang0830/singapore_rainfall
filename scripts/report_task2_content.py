@@ -115,7 +115,12 @@ LINE_PAIRS = {
   "雨量阈值 mm & 算法 & 训练诊断 PR-AUC & 选择 PR-AUC & 测试 PR-AUC\\\\\\midrule": "Rainfall threshold mm & Algorithm & Training PR-AUC & Validation PR-AUC & Test PR-AUC\\\\\\midrule",
   "\\vspace{5mm}\\noindent 固定站点样本中，合格站点年月的覆盖率至少为 80\\%，先对站点等权平均，再对可用年份等权平均。月度平均雨频以 11 月最高（4.28\\%）、7 月最低（1.85\\%）；有雨区间平均雨量以 3 月约 1.02 mm、1 月约 0.67 mm。雨频与有雨区间雨量呈现不同的季节变化。各月包含 6--8 个年份，每个合格年月包含 17--21 个站点。": "\\vspace{5mm}\\noindent Eligible station-months from the fixed panel require at least 80\\% coverage, with equal averaging over stations followed by available years. Mean monthly rain frequency is highest in November (4.28\\%) and lowest in July (1.85\\%). Mean wet-interval amounts are about 1.02 mm in March and 0.67 mm in January. Frequency and wet-interval amount show different seasonal patterns. Each month includes 6--8 years, and each eligible year-month includes 17--21 stations.",
   "\\noindent 各年采用相同的 21 个站点进行等权比较，每个站点的年度覆盖率至少为 80\\%。平均雨量 / 观测24h 从 2019 年的 4.81 mm 到 2021 年的 7.84 mm。2019 年的雨频为 1.97\\%，明显低于其余年份，而有雨区间雨量为 0.841 mm，与相邻年份接近，表明该年偏低的归一化雨量主要对应较低的降雨频率。": "\\noindent Each year compares the same 21 equally weighted stations, each with annual coverage of at least 80\\%. Mean rainfall per observed 24 hours ranges from 4.81 mm in 2019 to 7.84 mm in 2021. Rain frequency in 2019 is 1.97\\%, below the other years, while its wet-interval amount of 0.841 mm is close to adjacent years. Lower rainfall frequency is thus the main component associated with its lower normalized rainfall.",
-  "\\noindent 降雨频率在 16:00--17:00 达到日内高峰，且高峰时段与强度随月份变化。11--12 月的下午高峰较明显，6 月的较高雨频更接近上午至中午。统计对覆盖率至少 80\\% 的站点、年份、月份、小时组合等权平均。该结果支持同时使用小时、月份与二者交互项作为预测特征。": "\\noindent Rain frequency peaks at 16:00--17:00, with peak timing and strength varying by month. The afternoon peak is more pronounced in November--December, while June has elevated frequency from morning toward midday. Statistics equally weight eligible station-year-month-hour strata with at least 80\\% coverage. These findings motivate hour, month and their interactions as predictors."
+  "\\noindent 降雨频率在 16:00--17:00 达到日内高峰，且高峰时段与强度随月份变化。11--12 月的下午高峰较明显，6 月的较高雨频更接近上午至中午。统计对覆盖率至少 80\\% 的站点、年份、月份、小时组合等权平均。该结果支持同时使用小时、月份与二者交互项作为预测特征。": "\\noindent Rain frequency peaks at 16:00--17:00, with peak timing and strength varying by month. The afternoon peak is more pronounced in November--December, while June has elevated frequency from morning toward midday. Statistics equally weight eligible station-year-month-hour strata with at least 80\\% coverage. These findings motivate hour, month and their interactions as predictors.",
+  "\\clearpage\\section*{图 9：最终选定模型的 ROC 与 PR 曲线}": "\\clearpage\\section*{Figure 9: ROC and PR curves of the final selected models}",
+  "\\clearpage\\section*{图 10：校准曲线与概率质量}": "\\clearpage\\section*{Figure 10: reliability curves and probability quality}",
+  "\\textbf{评价对象。}三列依次为自然分布 XGBoost、类别加权 XGBoost 和 SMOTE Logistic，均由 2023 年下半年验证集选定。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口；各模型仍对应前述约 5\\% 的训练样本。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。": "\\textbf{Evaluation scope.} The columns show natural-distribution XGBoost, class-weighted XGBoost and SMOTE logistic, respectively, selected using 2023 H2 validation. Curves and AUCs use all 6,374,476 eligible 2024 test windows; the models still use the previously described training sample of about 5\\%. Dashed references are $y=x$ for ROC and test prevalence for PR.",
+  "\\textbf{排序表现。}三个目标的 ROC-AUC 分别为 0.87986、0.87526 和 0.85651，PR-AUC 分别为 0.60797、0.21299 和 0.01805。随着雨量阈值提高，PR 曲线整体下降，说明在更稀少的降雨事件中同时取得较高 Precision 和 Recall 更困难。25 mm 模型虽具有较高 ROC-AUC，实际稀有事件识别能力仍有限。": "\\textbf{Ranking performance.} ROC-AUCs are 0.87986, 0.87526 and 0.85651; PR-AUCs are 0.60797, 0.21299 and 0.01805. PR curves decline as the rainfall threshold increases, indicating greater difficulty in achieving high precision and recall together for rarer events. Despite a relatively high ROC-AUC, detection of rare 25 mm events remains limited.",
+  "\\textbf{评价对象。}三列依次为自然分布 XGBoost、类别加权 XGBoost 和 SMOTE Logistic，均由 2023 年下半年验证集选定。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口；各模型仍对应前述约 5\\% 的训练样本。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。25 mm 的 PR 面板将纵轴放大至 0--0.15，以展示低 Precision 区间。": "\\textbf{Evaluation scope.} The columns show natural-distribution XGBoost, class-weighted XGBoost and SMOTE logistic, respectively, selected using 2023 H2 validation. Curves and AUCs use all 6,374,476 eligible 2024 test windows; models use the previously described training sample of about 5\\%. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies the precision axis to 0--0.15."
 }
 
 OVERRIDES = {
@@ -183,7 +188,11 @@ LABELS = {
   "雨量阈值 mm": "Rainfall threshold mm",
   "10. AI 使用声明与参考文献": "10. AI use and references",
   "降雨频率": "Rainfall frequency",
-  "有雨区间平均雨量": "Mean wet-interval rainfall"
+  "有雨区间平均雨量": "Mean wet-interval rainfall",
+  "假正例率（FPR）": "False positive rate (FPR)",
+  "真正例率（TPR）": "True positive rate (TPR)",
+  "随机排序参考": "Random ranking reference",
+  "随机参考": "Random"
 }
 
 def apply(paragraphs, hashes, labels):
