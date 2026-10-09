@@ -1,0 +1,46 @@
+# Project working agreements
+
+- Every report content change must be applied to both Chinese and English versions.
+- Edit the existing open Chinese LaTeX source in place; keep its editor open.
+- Update report_translations.py for changed text, regenerate Task1_Report.tex,
+  compile both reports, and synchronize the desktop Project2 copy.
+- Do not retain generated CSV summaries, separate chart images, HTML dashboards,
+  audit logs, previews or ZIP backups in the deliverable directory or Git.
+  Retain source code, required static inputs, LaTeX sources and PDF reports.
+- Run subsequent full-data work on gpushare under /home/research_pyx/singapore.
+  Start with two CPU threads and 2 GiB driver heap, low process priority, no GPU,
+  and the existing 4 GiB process-tree monitoring bound. Avoid duplicate jobs;
+  inspect this project's existing processes before launching a new run.
+- Record actual execution hardware, Spark deployment mode and resource limits.
+  Historical Task 1 results were computed on the Mac; describe them as gpushare
+  results only after the corresponding analysis is actually rerun there.
+  Synchronize any resulting report content changes in both languages.
+- A gpushare VM running Spark local[2] is a single-machine deployment, not a
+  multi-node cluster. Do not install global packages or alter other projects.
+- Task 1 and Task 2 modelling and the bilingual report are complete.
+  Push and verify final backups before removing the server project
+  at full-project completion; report/backup work alone does not authorize early cleanup.
+
+- Server storage: /home/research_pyx/singapore is a symlink to the project-owned
+  /hy-tmp/singapore_rainfall_pyx directory after checksum-verified migration.
+  Keep temporary data in that project directory. Final cleanup must account for
+  the physical directory and its logical link after verified backups.
+- Compare models primarily using ROC-AUC and PR-AUC; retain Brier and calibration
+  curves. Precision/recall/F1/accuracy are supplementary at a validation-selected
+  probability cutoff, not the main model-selection criteria.
+
+- Task 2 active thresholds are 0, 5 and 25 mm; defer the 50 mm experiment.
+- Keep one station/time feature row with separate target columns; do not expand
+  observation features once per rainfall threshold.
+- Feature availability is conservative: observation, calendar slot and stored
+  update times must all be <= prediction time. Do not call update time first
+  publication time. Rolling totals end at the latest eligible observation and
+  include its age; missing values are not no-rain observations.
+- Fit imputation, scaling and categorical encoding on training data only.
+  Use task2_features.NUMERIC_FEATURES/CATEGORICAL_FEATURES explicitly; never
+  assemble target, future-total or audit columns as predictors.
+
+- Group report names are 潘禹翔、侯佳成、吴嘉蕊. Omit student IDs as explicitly requested.
+- Task1_Report_CN.tex / Task1_Report.tex now contain the complete project report,
+  despite legacy filenames. Do not overwrite them with the legacy Task 1 generator.
+- Native model pipelines in models/ are required submission artifacts and tracked in Git.

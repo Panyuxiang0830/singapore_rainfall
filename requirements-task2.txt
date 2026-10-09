@@ -1,0 +1,5 @@
+-r requirements.txt
+xgboost==3.2.0
+scikit-learn==1.9.0
+scipy==1.17.1
+pyarrow==25.0.0

@@ -1,0 +1,19 @@
+/data/
+.venv/
+.runtime/
+work/
+# Trained model pipelines are required deliverables and are tracked.
+__pycache__/
+*.pyc
+.env
+*.log
+# Generated analysis products; recreate them with the scripts.
+reports/figures/
+reports/tables/
+reports/downloads/
+reports/quality/
+reports/*.json
+reports/*.jsonl
+reports/task1_dashboard.html
+SHA256SUMS.txt
+.DS_Store
