@@ -44,3 +44,10 @@
 - Task1_Report_CN.tex / Task1_Report.tex now contain the complete project report,
   despite legacy filenames. Do not overwrite them with the legacy Task 1 generator.
 - Native model pipelines in models/ are required submission artifacts and tracked in Git.
+
+- Reports should use concise student-project academic prose. Exclude work logs,
+  Git/Desktop synchronization, compilation internals, submission status and
+  conversational headings such as 怎样读图/默认路由. State findings directly.
+- Keep the requested deletions from the 9 October editorial review. Explain
+  the actual 5% training sample, cyclic time encoding, feature-group comparisons
+  and Platt probability calibration clearly in both languages.

@@ -21,8 +21,10 @@
 {\LARGE\bfseries\color{ink} Singapore rainfall: temporal-spatial patterns and prediction}\par
 {\large Tasks 1 and 2: Spark exploration and probability prediction, 2017--2024}\par
 \vspace{2mm}
+
 \textbf{Group members.} Pan Yuxiang, Hou Jiacheng, Wu Jiarui.
-\textbf{Scope and status.} This report covers Task 1 rainfall exploration and Task 2 half-hour exceedance probability prediction. Models have been trained, calibrated and evaluated on gpushare. Group members are Pan Yuxiang, Hou Jiacheng and Wu Jiarui.
+
+\textbf{Study objectives.} Using Singapore rainfall observations from 2017--2024, we analyse temporal and spatial patterns and develop models to predict the probability that station rainfall accumulated over the next 30 minutes exceeds a given threshold.
 
 \textbf{Data and methods.} The eight NEA / data.gov.sg annual datasets contain 48,538,713 source records and 48,538,627 unique valid observations from 91 station IDs. Spark performs full-data cleaning and aggregation. Annual comparisons use 21 stable stations to reduce changes caused by the monitoring network.
 
@@ -40,9 +42,10 @@ Year & Rain / observed 24h (mm) & Wet frequency (\%) & Wet-interval intensity (m
 2024 & 7.11 & 3.01 & 0.819 & 95.6\\
 \bottomrule\end{tabular}\end{center}
 \noindent Each year in this table uses the same 21 stations, with equal station weights. Duration-normalized rainfall is neither an official annual total nor an actual daily total. Eligible monthly and hourly samples can vary.\clearpage\section*{1. Data sources, fields and cleaning}
+
 \textbf{Sources and fields.} Records contain observation and update timestamps, station ID/name/device ID, coordinates, reading update timestamp, rainfall amount, type, unit and date fields. There are no temperature, humidity or wind observations. API previews identify fields and annual IDs; weather findings come from the complete annual files.
 
-\textbf{Source tracking.} During execution, each full CSV receives a manifest containing its official dataset ID, API row count, retrieval time, byte count and SHA256 of the original CSV bytes. The read row count is reconciled against the recorded annual API count.
+\textbf{Data checks.} After downloading complete annual CSV files, we reconcile Spark input row counts with annual API metadata and check duplicate observations, timestamp alignment and rainfall values.
 
 \textbf{Cleaning.} Spark parses timestamps in Asia/Singapore. It accepts finite, nonnegative mm readings with the expected five-minute type and valid station ID, timestamp and CSV record. Timestamps are aligned only if within two seconds of the five-minute grid; original epochs are retained. Station-time duplicates use the latest reading update, then deterministic tie-breakers. Combined annual data are checked again for cross-file duplicates.
 \begin{center}\begin{tabular}{rrrrrr}
@@ -57,7 +60,8 @@ Year & Source rows & Duplicates removed & Off-grid over 2 s & Negative readings 
 2023 & 6,742,890 & 0 & 0 & 0 & 74\\
 2024 & 6,406,260 & 0 & 0 & 0 & 70\\
 \bottomrule\end{tabular}\end{center}
-\textbf{Cleaning results.} All 86 duplicates occur in 2017. There are no negative readings or timestamps more than two seconds off-grid, and no cross-file duplicates. No station-year with at least 90\% coverage has all-zero rainfall. Missing intervals are never zero-filled. Readings above 50 mm per five minutes are retained and flagged for sensitivity analysis; none occur in this run. This is a screening value rather than an official quality threshold; valid records can still contain sensor errors.
+
+\textbf{Cleaning results.} All 86 duplicate records occur in 2017. The eight years contain no negative rainfall, timestamps more than two seconds from the five-minute grid, or cross-file duplicates. Missing intervals are not counted as zero rainfall. Additional screening of readings above 50 mm/5min identifies none.
 
 \clearpage\section*{2. Metrics and comparable samples}
 For a station and time period, let $N$ be the number of valid observations, $r_i\geq0$ the rainfall amount, $W=\sum_i\mathbf{1}(r_i>0)$ the number of wet intervals, and $E$ the expected calendar slots. We use:
@@ -76,11 +80,12 @@ Calendar denominators handle leap years. Low coverage can reflect a station oper
 \textbf{Spatial samples.} Figure 1 uses 2024, which has 70 stations. Of these, 56 have annual coverage of at least 90\% and enter map colouring; the other 14 are shown in grey. Figure 5 uses daily totals from the fixed 21 stations, requiring at least 95\% daily coverage and 365 common valid days per pair. The 80\%, 90\% and 95\% completeness thresholds are project choices.
 
 \clearpage\section*{3. Computing environment and station scope}
-\textbf{Actual computing environment.} The main Task 1 analysis ran on an Apple Silicon Mac: 10 logical CPUs, 16 GiB RAM, macOS 26.5.2 ARM64, Python 3.12.14, Java Temurin 17.0.20.1+1 and Spark 3.5.8. Task 2 labels, features, all models and evaluations ran on gpushare on 9 October 2026: Python 3.11.10, Azul Zulu Java 17.0.20.1, Spark 3.5.8 and XGBoost 3.2.0. The container quota is 42 CPUs and about 667.68 GiB RAM; the project binds only CPUs 0 and 1, uses a 2 GiB driver heap and a sampled 4 GiB process-tree RSS stop bound.
 
-\textbf{Spark configuration and role.} Spark uses \texttt{local[2]}: two worker threads on one machine. Driver heap is 2 GiB, shuffle partitions 8 and default parallelism 2. Annual processing is sequential and uses no GPU. Spark DataFrame/SQL and windows perform cleaning, deduplication, temporal grouping and full-data aggregation; small summaries are used for figures and daily-rainfall correlations.
+\textbf{Computing environment.} Task 1 runs on an Apple Silicon Mac with 10 logical CPUs, 16 GiB RAM, macOS 26.5.2 ARM64, Python 3.12.14, Java Temurin 17.0.20.1+1 and Spark 3.5.8. Task 2 runs on gpushare with Python 3.11.10, Azul Zulu Java 17.0.20.1, Spark 3.5.8 and XGBoost 3.2.0. The gpushare container quota is 42 CPUs and about 667.68 GiB RAM; this project uses two CPUs and a 2 GiB driver heap.
 
-\textbf{Which stations enter each analysis?} Screening applies to a specific comparison; it does not remove all stations outside the fixed panel.
+\textbf{Spark configuration and role.} We use single-machine two-thread \texttt{local[2]}, with 8 shuffle partitions, default parallelism 2 and no GPU. Spark DataFrame/SQL and windows perform full-data cleaning, temporal aggregation, labels and features; Spark ML pipelines perform model training and evaluation. The gpushare process is bound to CPUs 0 and 1, with sampled benchmark peak memory of 2.719 GiB.
+
+\textbf{Analysis samples.} Station scope and completeness criteria are chosen according to the comparison, as summarized below.
 \begin{center}\begin{tabular}{p{7.0cm}p{6.8cm}p{10.5cm}}
 \toprule
 Analysis & Station scope & Screening rule\\\midrule
@@ -92,12 +97,13 @@ Figure 5: distance and correlation & Fixed 21 stations; 210 pairs & Daily covera
 Figure 6 left: wet amounts & All 91 stations across eight years & Wet five-minute observations only\\
 Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from all 70 stations & Six complete future slots or two adjacent slots\\
 \bottomrule\end{tabular}\end{center}
+
 \textbf{Cleaning checks.} Source row counts match API counts; 86 duplicate records were removed, and missing slots are not zero-filled. The overall dry fraction uses all 91 stations, rather than only the 21-station panel.
 
 \clearpage\section*{Figure 1: Station rainfall maps in 2024}
 
 \begin{center}\begin{tikzpicture}
-\begin{axis}[reportaxis,at={(0.0cm,0)},anchor=south west,width=10.7cm,height=8cm,title={Rain frequency},xlabel={Longitude (E)},ylabel={Latitude (N)},xmin=103.59,xmax=104.11,ymin=1.14,ymax=1.49,xtick={103.6,103.7,103.8,103.9,104.0,104.1},scaled ticks=false,axis equal image,point meta min=1.8499486,point meta max=3.5497582,colormap/viridis,colorbar,colorbar style={ylabel={Wet five-minute intervals (\%)}}]
+\begin{axis}[reportaxis,at={(0.0cm,0)},anchor=south west,width=10.7cm,height=8cm,title={Rainfall frequency},xlabel={Longitude (E)},ylabel={Latitude (N)},xmin=103.59,xmax=104.11,ymin=1.14,ymax=1.49,xtick={103.6,103.7,103.8,103.9,104.0,104.1},scaled ticks=false,axis equal image,point meta min=1.8499486,point meta max=3.5497582,colormap/viridis,colorbar,colorbar style={ylabel={Wet five-minute intervals (\%)}}]
 \path[fill=land,draw=gray!60,line width=.2pt] (axis cs:103.7218714,1.2135462) -- (axis cs:103.7136853,1.2111756) -- (axis cs:103.7071836,1.2044931) -- (axis cs:103.7178159,1.2025194) -- (axis cs:103.7336516,1.2034740) -- (axis cs:103.7320316,1.2059304) -- (axis cs:103.7280932,1.2077765) -- (axis cs:103.7293708,1.2096419) -- (axis cs:103.7306401,1.2078811) -- (axis cs:103.7292099,1.2111542) -- (axis cs:103.7250955,1.2102398) -- (axis cs:103.7234225,1.2122353) -- (axis cs:103.7249692,1.2126089) -- (axis cs:103.7218714,1.2135462) -- cycle;
 \path[fill=land,draw=gray!60,line width=.2pt] (axis cs:103.7620320,1.2111744) -- (axis cs:103.7586846,1.2177819) -- (axis cs:103.7576868,1.2058326) -- (axis cs:103.7603261,1.1982919) -- (axis cs:103.7598326,1.1959214) -- (axis cs:103.7641456,1.1914377) -- (axis cs:103.7602617,1.1965328) -- (axis cs:103.7661519,1.2024002) -- (axis cs:103.7750461,1.1968760) -- (axis cs:103.7743916,1.1931754) -- (axis cs:103.7711944,1.1905474) -- (axis cs:103.7680509,1.1895820) -- (axis cs:103.7649502,1.1905688) -- (axis cs:103.7676539,1.1891100) -- (axis cs:103.7702181,1.1893889) -- (axis cs:103.7746920,1.1927249) -- (axis cs:103.7757971,1.1971978) -- (axis cs:103.7809255,1.2002549) -- (axis cs:103.7811830,1.2094260) -- (axis cs:103.7767412,1.2109813) -- (axis cs:103.7689521,1.2082032) -- (axis cs:103.7620320,1.2111744) -- cycle;
 \path[fill=land,draw=gray!60,line width=.2pt] (axis cs:103.8486849,1.2308515) -- (axis cs:103.8455629,1.2319805) -- (axis cs:103.8494038,1.2295376) -- (axis cs:103.8469575,1.2263895) -- (axis cs:103.8500045,1.2291408) -- (axis cs:103.8502351,1.2278215) -- (axis cs:103.8521824,1.2278965) -- (axis cs:103.8522575,1.2262500) -- (axis cs:103.8502724,1.2257929) -- (axis cs:103.8521355,1.2244850) -- (axis cs:103.8512222,1.2209995) -- (axis cs:103.8456362,1.2234323) -- (axis cs:103.8431678,1.2221753) -- (axis cs:103.8518459,1.2133951) -- (axis cs:103.8505147,1.2198074) -- (axis cs:103.8524453,1.2225870) -- (axis cs:103.8570170,1.2176462) -- (axis cs:103.8584159,1.2182431) -- (axis cs:103.8573537,1.2194981) -- (axis cs:103.8583086,1.2215575) -- (axis cs:103.8533371,1.2275506) -- (axis cs:103.8541599,1.2291208) -- (axis cs:103.8575994,1.2295976) -- (axis cs:103.8583408,1.2320265) -- (axis cs:103.8552723,1.2319299) -- (axis cs:103.8565583,1.2314090) -- (axis cs:103.8557012,1.2302183) -- (axis cs:103.8510722,1.2296501) -- (axis cs:103.8551221,1.2319407) -- (axis cs:103.8513256,1.2315290) -- (axis cs:103.8517156,1.2306119) -- (axis cs:103.8495406,1.2296934) -- (axis cs:103.8486849,1.2308515) -- cycle;
@@ -113,7 +119,7 @@ Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from
 \addplot[scatter,only marks,mark=*,mark size=2.5pt,scatter src=explicit,draw=white] coordinates {(103.8334000,1.3415000)[3.4435342] (103.8271000,1.3701000)[3.1824463] (103.7853800,1.4438700)[3.0918641] (103.9625000,1.3135000)[2.5892315] (103.8492000,1.3764000)[3.2890478] (103.8365000,1.3105500)[3.0057848] (103.9104000,1.3064800)[2.5503769] (103.6184300,1.2937700)[2.8535368] (103.7540000,1.2810000)[2.9783514] (103.6790000,1.2560000)[3.0748623] (103.8666000,1.3010500)[2.7376375] (103.7224400,1.3728800)[3.2260951] (103.7671400,1.3231100)[3.2437936] (103.7702000,1.2916400)[3.1747778] (103.9583600,1.3248500)[2.7414981] (104.0031700,1.3136000)[1.8499486] (103.8447200,1.4211100)[3.1501838] (103.7690400,1.4400300)[3.1479295] (103.7571100,1.4291800)[3.2347665] (103.8097000,1.3242700)[3.2224443] (103.8828900,1.2991100)[2.5328018] (103.8889900,1.3278500)[2.7249471] (103.8533500,1.3601900)[3.2208034] (103.8552600,1.3504100)[3.2212619] (103.7506500,1.3649100)[3.2874079] (103.8764300,1.3799900)[3.1883920] (103.8979700,1.3866600)[2.8519770] (103.8908800,1.3569100)[3.0669357] (103.8236400,1.2898700)[3.0123292] (103.8026400,1.2998400)[2.9495552] (103.9840900,1.3439200)[2.4448970] (103.8038900,1.2747200)[2.9807924] (103.8038900,1.4394400)[3.2163214] (103.7007300,1.3470300)[3.3176979] (103.7219500,1.3516700)[3.2341859] (103.7644400,1.3016700)[3.0342242] (103.9826000,1.3678000)[2.8477024] (103.7100000,1.3081000)[3.5497582] (103.7556000,1.3329000)[3.1560859] (103.7896200,1.4044000)[3.2294191] (103.8878000,1.3399000)[2.9989659] (103.6816600,1.3458300)[3.2741796] (103.7768000,1.3337000)[3.1556849] (103.7603000,1.3824000)[3.3426584] (103.7363000,1.4387000)[3.4082697] (103.8050000,1.3700000)[3.3929479] (103.7815000,1.2923000)[3.1618164] (103.8125000,1.2937000)[2.9195740] (103.8906700,1.3070300)[2.7997336] (103.9092000,1.4029000)[3.0049620] (103.9444000,1.3437000)[2.9166544] (103.8482000,1.3427000)[3.2600388] (103.6616200,1.3198500)[3.2422172] (103.8191000,1.3191000)[3.2326640] (103.8692200,1.4128400)[3.2314234] (103.9528000,1.3662000)[2.7463803]};
 \addplot[gray,only marks,mark=x,mark size=2.2pt] coordinates {(103.9007000,1.3524000) (103.7680000,1.1890000) (103.9673000,1.4168000) (103.8703000,1.2799000) (103.7013100,1.4385400) (103.7300000,1.3800000) (103.8461000,1.2994000) (103.8180000,1.3087400) (103.8577000,1.3214000) (103.9357400,1.3183500) (103.9350000,1.3870000) (103.8279000,1.2500000) (103.8372000,1.3004000) (103.7886000,1.2841000)};
 \end{axis}
-\begin{axis}[reportaxis,at={(12.8cm,0)},anchor=south west,width=10.7cm,height=8cm,title={Intensity when wet},xlabel={Longitude (E)},ylabel={Latitude (N)},xmin=103.59,xmax=104.11,ymin=1.14,ymax=1.49,xtick={103.6,103.7,103.8,103.9,104.0,104.1},scaled ticks=false,axis equal image,point meta min=0.7342727,point meta max=0.9731774,colormap/hot2,colorbar,colorbar style={ylabel={mm / wet five-minute interval}}]
+\begin{axis}[reportaxis,at={(12.8cm,0)},anchor=south west,width=10.7cm,height=8cm,title={Mean wet-interval rainfall},xlabel={Longitude (E)},ylabel={Latitude (N)},xmin=103.59,xmax=104.11,ymin=1.14,ymax=1.49,xtick={103.6,103.7,103.8,103.9,104.0,104.1},scaled ticks=false,axis equal image,point meta min=0.7342727,point meta max=0.9731774,colormap/hot2,colorbar,colorbar style={ylabel={mm / wet five-minute interval}}]
 \path[fill=land,draw=gray!60,line width=.2pt] (axis cs:103.7218714,1.2135462) -- (axis cs:103.7136853,1.2111756) -- (axis cs:103.7071836,1.2044931) -- (axis cs:103.7178159,1.2025194) -- (axis cs:103.7336516,1.2034740) -- (axis cs:103.7320316,1.2059304) -- (axis cs:103.7280932,1.2077765) -- (axis cs:103.7293708,1.2096419) -- (axis cs:103.7306401,1.2078811) -- (axis cs:103.7292099,1.2111542) -- (axis cs:103.7250955,1.2102398) -- (axis cs:103.7234225,1.2122353) -- (axis cs:103.7249692,1.2126089) -- (axis cs:103.7218714,1.2135462) -- cycle;
 \path[fill=land,draw=gray!60,line width=.2pt] (axis cs:103.7620320,1.2111744) -- (axis cs:103.7586846,1.2177819) -- (axis cs:103.7576868,1.2058326) -- (axis cs:103.7603261,1.1982919) -- (axis cs:103.7598326,1.1959214) -- (axis cs:103.7641456,1.1914377) -- (axis cs:103.7602617,1.1965328) -- (axis cs:103.7661519,1.2024002) -- (axis cs:103.7750461,1.1968760) -- (axis cs:103.7743916,1.1931754) -- (axis cs:103.7711944,1.1905474) -- (axis cs:103.7680509,1.1895820) -- (axis cs:103.7649502,1.1905688) -- (axis cs:103.7676539,1.1891100) -- (axis cs:103.7702181,1.1893889) -- (axis cs:103.7746920,1.1927249) -- (axis cs:103.7757971,1.1971978) -- (axis cs:103.7809255,1.2002549) -- (axis cs:103.7811830,1.2094260) -- (axis cs:103.7767412,1.2109813) -- (axis cs:103.7689521,1.2082032) -- (axis cs:103.7620320,1.2111744) -- cycle;
 \path[fill=land,draw=gray!60,line width=.2pt] (axis cs:103.8486849,1.2308515) -- (axis cs:103.8455629,1.2319805) -- (axis cs:103.8494038,1.2295376) -- (axis cs:103.8469575,1.2263895) -- (axis cs:103.8500045,1.2291408) -- (axis cs:103.8502351,1.2278215) -- (axis cs:103.8521824,1.2278965) -- (axis cs:103.8522575,1.2262500) -- (axis cs:103.8502724,1.2257929) -- (axis cs:103.8521355,1.2244850) -- (axis cs:103.8512222,1.2209995) -- (axis cs:103.8456362,1.2234323) -- (axis cs:103.8431678,1.2221753) -- (axis cs:103.8518459,1.2133951) -- (axis cs:103.8505147,1.2198074) -- (axis cs:103.8524453,1.2225870) -- (axis cs:103.8570170,1.2176462) -- (axis cs:103.8584159,1.2182431) -- (axis cs:103.8573537,1.2194981) -- (axis cs:103.8583086,1.2215575) -- (axis cs:103.8533371,1.2275506) -- (axis cs:103.8541599,1.2291208) -- (axis cs:103.8575994,1.2295976) -- (axis cs:103.8583408,1.2320265) -- (axis cs:103.8552723,1.2319299) -- (axis cs:103.8565583,1.2314090) -- (axis cs:103.8557012,1.2302183) -- (axis cs:103.8510722,1.2296501) -- (axis cs:103.8551221,1.2319407) -- (axis cs:103.8513256,1.2315290) -- (axis cs:103.8517156,1.2306119) -- (axis cs:103.8495406,1.2296934) -- (axis cs:103.8486849,1.2308515) -- cycle;
@@ -168,9 +174,9 @@ Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from
 \addplot[ink,very thick,mark=*,mark size=1.6pt] coordinates {(1.0000000,0.6742615) (2.0000000,0.8233295) (3.0000000,1.0191795) (4.0000000,0.9980225) (5.0000000,0.9603677) (6.0000000,0.8655557) (7.0000000,0.8800701) (8.0000000,0.8885765) (9.0000000,0.8987452) (10.0000000,0.8339075) (11.0000000,0.8709463) (12.0000000,0.8241747)};
 \end{axis}
 \end{tikzpicture}\end{center}
-\vspace{5mm}\noindent Eligible station-year-months from the fixed annual pool require at least 80\% coverage. Stations are averaged equally, then available years equally. Mean frequency is highest in November (4.28\%) and lowest in July (1.85\%). Mean wet-interval intensity is about 1.02 mm in March and 0.67 mm in January. Frequency and intensity need not share the same seasonal pattern. Each month has 6--8 available years and varying eligible stations. MSS descriptions of wetter November--January conditions provide context rather than proof of monsoon causation.
+\vspace{5mm}\noindent Eligible station-months from the fixed panel require at least 80\% coverage, with equal averaging over stations followed by available years. Mean monthly rain frequency is highest in November (4.28\%) and lowest in July (1.85\%). Mean wet-interval amounts are about 1.02 mm in March and 0.67 mm in January. Frequency and wet-interval amount show different seasonal patterns. Each month includes 6--8 years, and each eligible year-month includes 17--21 stations.
 
-\textbf{Task 2 feature implications (months).} Retain cyclic month or day-of-year features and test their contribution by ablation. Singapore is affected by monsoons but has no sharply distinct wet and dry seasons. Less frequent rain does not mean no rain, and frequency is different from accumulated rainfall.
+\textbf{Task 2 features (month).} Monthly frequency and wet-interval intensity vary differently. We encode month using sine and cosine to represent the annual cycle and combine them with hour encoding to capture seasonal variation in diurnal rainfall.
 \clearpage\section*{Figure 3: Annual changes in the fixed panel}
 
 \begin{center}\begin{tikzpicture}
@@ -184,10 +190,10 @@ Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from
 \addplot[ybar,fill=orange!80!black,draw=none,bar width=11pt,nodes near coords,nodes near coords style={font=\scriptsize},point meta=y] coordinates {(2017.0000000,0.8332878) (2018.0000000,0.8396547) (2019.0000000,0.8414619) (2020.0000000,0.8773008) (2021.0000000,0.8953600) (2022.0000000,0.8679529) (2023.0000000,0.8236592) (2024.0000000,0.8188827)};
 \end{axis}
 \end{tikzpicture}\end{center}
-\noindent The same 21 stations enter every year, each with at least 80\% annual coverage. Mean rainfall per observed 24 hours ranges from 4.81 mm in 2019 to 7.84 mm in 2021. Frequency and wet-interval intensity change differently, helping explain annual differences. Coverage normalization does not recover missed storms; mean coverage in 2018 is about 82.9\%, lower than in most years. These are descriptive annual comparisons, without a long-term climate trend or significance claim.
+\noindent Each year compares the same 21 equally weighted stations, each with annual coverage of at least 80\%. Mean rainfall per observed 24 hours ranges from 4.81 mm in 2019 to 7.84 mm in 2021. Rain frequency in 2019 is 1.97\%, below the other years, while its wet-interval amount of 0.841 mm is close to adjacent years. Lower rainfall frequency is thus the main component associated with its lower normalized rainfall.
 
-\textbf{Task 2 feature implications (years).} Initially omit calendar-year identifiers from the main model to reduce memorization of individual years. NEA documented dry conditions and a strong positive Indian Ocean Dipole in 2019; this is external climate context rather than causal evidence from these data. Use chronological training, validation and test splits, and report performance across years.
-\clearpage\section*{Figure 4: When during the day does it rain?}
+\textbf{Task 2 features (year).} Training, validation and test are split chronologically. Models use cyclic month and hour features without year identifiers. NEA relates the dry conditions in 2019 to a strong positive Indian Ocean Dipole, providing external context for annual variation.
+\clearpage\section*{Figure 4: Diurnal variation in rainfall frequency}
 
 \begin{center}\begin{tikzpicture}
 \begin{axis}[reportaxis,at={(0cm,0)},anchor=south west,width=11cm,height=7.5cm,title={Diurnal rain frequency},xlabel={Hour (Singapore time)},ylabel={Wet intervals (\%)},xtick={0,3,...,21},xmin=0,xmax=23]
@@ -522,7 +528,7 @@ Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from
 \node[font=\footnotesize,anchor=west] at (0,-1.05){Light $\rightarrow$ dark: 0 $\rightarrow$ 10; grey: no eligible sample};
 \end{scope}
 \end{tikzpicture}\end{center}
-\noindent Frequency peaks at 16:00--17:00 Singapore time. The right panel shows how the cycle varies by month; June has elevated frequencies closer to morning and midday. Eligible station-year-month-hour strata require at least 80\% coverage and receive equal weights; their composition can vary. MSS afternoon-rainfall descriptions provide background. No additional temperature, wind or humidity observations are available to explain mechanisms.
+\noindent Rain frequency peaks at 16:00--17:00, with peak timing and strength varying by month. The afternoon peak is more pronounced in November--December, while June has elevated frequency from morning toward midday. Statistics equally weight eligible station-year-month-hour strata with at least 80\% coverage. These findings motivate hour, month and their interactions as predictors.
 
 \textbf{Task 2 feature implications (hour and month).} Encode Singapore local hour cyclically and consider month--hour interactions: the strength and timing of the afternoon peak vary by month. Logistic regression and linear SVM need explicit interaction features; trees can learn such combinations. Their predictive contribution must still be tested by ablation.
 \clearpage\section*{Figure 5: Distance and daily-rainfall correlation}
@@ -532,64 +538,66 @@ Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from
 \addplot[ink,very thick,mark=*,mark size=1.4pt] coordinates {(3.5996518,0.8085525) (7.6231205,0.6415685) (12.5063802,0.5481465) (17.0768834,0.4969552) (22.1302944,0.4340133) (27.1010742,0.3848235) (31.9763885,0.3545916) (37.4740816,0.2967865) (41.3113739,0.3104956)};
 \end{axis}
 \end{tikzpicture}\end{center}
-\noindent Each point is a station pair: separation is on the horizontal axis and Pearson correlation of daily totals on shared valid dates is on the vertical axis. The dark line averages correlations within 5 km distance groups. The 21 stations form 210 pairs. Mean correlation is 0.809 for 17 pairs no more than 5 km apart, and 0.336 for 12 pairs more than 30 km apart. \textbf{Nearby stations generally show stronger daily-rainfall co-movement.} This is an overall pattern, not an ordering that holds for every pair.
+\noindent The 21 stations form 210 pairs. The mean Pearson correlation of daily rainfall is 0.809 for 17 pairs separated by at most 5 km, compared with 0.336 for 12 pairs more than 30 km apart. Mean correlations in 5 km distance groups generally decrease with separation, indicating spatial dependence.
 
 \textbf{Stations are not independent.} Nearby gauges may experience the same rainfall event, and different pairs can share a station. Thus, 91 gauges are not 91 independent weather samples, and the 210 correlations are not 210 independent samples. Shared-day screening follows the criteria given earlier.
 
-\textbf{Task 2 feature implications (neighbours).} Use available history from the three closest stations: means, maxima, wet fractions, available-neighbour counts, distances and reading ages. Graph neural networks are deferred. Daily correlation motivates these candidates; Task 2 separately compares models with and without neighbour features to assess predictive gains.
+\textbf{Task 2 features (neighbours).} Stronger daily-rainfall correlation among nearby stations motivates mean rainfall, maximum rainfall and wet fractions from the three closest stations. Task 2 compares models before and after adding neighbour features to evaluate their contribution to half-hour prediction.
 
-\clearpage\section*{Figure 6: Rainfall amounts, half-hour exceedance and persistence}
+\clearpage\section*{Figure 6: Rainfall distribution, half-hour exceedance and persistence}
 
 \begin{center}\begin{tikzpicture}
-\begin{axis}[reportaxis,at={(0cm,0)},anchor=south west,width=7cm,height=7.2cm,title={Wet-interval rainfall amounts},xlabel={Five-minute rainfall (mm)},ylabel={Share of wet records (\%)},xtick={0,1,2,3,4,5,6},xticklabels={{(0, 0.2]},{(0.2, 1]},{(1, 2]},{(2, 5]},{(5, 10]},{(10, 20]},{>20}},xticklabel style={rotate=35,anchor=east},ymin=0]
+\begin{axis}[reportaxis,at={(0cm,0)},anchor=south west,width=7cm,height=7.2cm,title={Five-minute rainfall when wet},xlabel={Five-minute rainfall (mm)},ylabel={Share of wet records (\%)},xtick={0,1,2,3,4,5,6},xticklabels={{(0, 0.2]},{(0.2, 1]},{(1, 2]},{(2, 5]},{(5, 10]},{(10, 20]},{>20}},xticklabel style={rotate=35,anchor=east},ymin=0]
 \addplot[ybar,fill=blue!70!black,draw=none,bar width=12pt] coordinates {(0.0000000,41.7152677) (1.0000000,37.1621336) (2.0000000,9.5575802) (3.0000000,8.9957515) (4.0000000,2.4250166) (5.0000000,0.1435447) (6.0000000,0.0007057)};
 \end{axis}
-\begin{axis}[reportaxis,at={(8.5cm,0)},anchor=south west,width=7cm,height=7.2cm,title={Subsequent 30-minute exceedance},xlabel={Threshold (mm)},ylabel={Windows exceeding threshold (\%)},xtick={0,...,4},xticklabels={0,1,5,10,20},ymin=0]
+\begin{axis}[reportaxis,at={(8.5cm,0)},anchor=south west,width=7cm,height=7.2cm,title={Half-hour rainfall exceedance},xlabel={Threshold (mm)},ylabel={Windows exceeding threshold (\%)},xtick={0,...,4},xticklabels={0,1,5,10,20},ymin=0]
 \addplot[ybar,fill=teal,draw=none,bar width=12pt] coordinates {(0.0000000,6.3602091) (1.0000000,2.5694661) (2.0000000,0.8344686) (3.0000000,0.3816784) (4.0000000,0.1027535)};
 \end{axis}
-\begin{axis}[reportaxis,at={(17cm,0)},anchor=south west,width=7cm,height=7.2cm,title={Rain after a dry or wet interval},ylabel={Next interval wet (\%)},xtick={0,1},xticklabels={Previous interval dry,Previous interval wet},ymin=0]
+\begin{axis}[reportaxis,at={(17cm,0)},anchor=south west,width=7cm,height=7.2cm,title={Conditional probability of rain},ylabel={Next interval wet (\%)},xtick={0,1},xticklabels={Previous interval dry,Previous interval wet},ymin=0]
 \addplot[ybar,fill=orange!80!black,draw=none,bar width=24pt] coordinates {(0.0000000,1.0369391) (1.0000000,67.0312500)};
 \end{axis}
 \end{tikzpicture}\end{center}
-\noindent \textbf{Left: rainfall amounts when wet.} The denominator contains \textbf{wet} five-minute records from all stations across eight years. Bars show the proportions in rainfall ranges: 41.72\% are in $(0,0.2]$ mm and 37.16\% in $(0.2,1]$ mm. Together, about 78.88\% of wet intervals have no more than 1 mm. Dry records are excluded from this panel; they represent 97.08\% of all valid observations.
+\noindent \textbf{Rainfall distribution in wet intervals.} Across all stations and eight years, 41.72\% of wet five-minute observations fall in $(0,0.2]$ mm and 37.16\% in $(0.2,1]$ mm. Together, 78.88\% have at most 1 mm, indicating small accumulations in most wet intervals. Dry intervals account for 97.08\% of all valid five-minute observations.
 
-\textbf{Middle: how often a half-hour total exceeds a threshold.} For 6,374,476 complete 2024 windows, the sum of six five-minute readings in $(t,t+30\text{min}]$ defines the subsequent total. Sums are rounded to nine decimal places to avoid floating-point errors at exact thresholds. The horizontal axis lists thresholds and the vertical axis shows the fraction strictly exceeding each threshold. Totals exceed 0 mm in 6.36\% of windows and 5 mm in 0.83\%. Larger thresholds are rarer. The five categories have equal display spacing, not equal numerical spacing.
+\textbf{Exceedance probability of half-hour rainfall.} There are 6,374,476 complete future six-interval windows in 2024. Subsequent 30-minute totals strictly exceed 0 mm in 6.36\% of windows and 5 mm in 0.83\%; exceedance becomes less frequent as the rainfall threshold rises. Totals are compared at nine decimal places to avoid floating-point errors at threshold boundaries. The horizontal axis uses threshold categories.
 
-\textbf{Right: does rainfall continue?} For adjacent five-minute intervals at the same station in 2024, a wet interval follows a dry one in 1.04\% of cases, versus 67.03\% after a wet one. Recent rainfall therefore motivates features for Task 2. The middle and right panels are historical statistics, \textbf{not trained-model performance}.
+\textbf{Rainfall persistence in consecutive intervals.} For consecutive five-minute observations at the same station in 2024, the probability of rain is 1.04\% following a dry interval and 67.03\% following a wet interval. This substantial short-term persistence supports recent rainfall and wet-spell duration as predictors.
 
 \textbf{Task 2 feature implications (persistence and rare events).} Implemented features include the latest reading, 15/30/60-minute totals, recent rainfall changes and wet-spell duration. Only records available at prediction time are used; missing readings are not dry readings. The following sections report positive counts, PR-AUC, Brier score and calibration curves separately by threshold.
 \clearpage\section*{4. Task 2: prediction target and chronological splits}
 
-\textbf{Prediction target.} Given station $s$, Singapore prediction time $t$ and rainfall threshold $q$, return the probability that the next 30-minute accumulated rainfall strictly exceeds $q$. The interface retrieves station and neighbour history as of $t$; users do not manually supply an observation sequence.
+\textbf{Prediction target.} For station $s$, prediction time $t$ and rainfall threshold $q$, the model estimates the probability that the following 30-minute accumulated rainfall strictly exceeds $q$. Historical station and neighbour features are retrieved for the requested station and time.
 \[R_{s,t}^{30}=\sum_{k=1}^{6}r_{s,t+5k\,\mathrm{min}},\qquad y_{s,t}^{(q)}=\mathbf{1}(R_{s,t}^{30}>q),\qquad \hat p_q=P(y^{(q)}=1\mid x_{s,t}).\]
 
-\textbf{Thresholds and interface scope.} This experiment uses $q\in\{0,5,25\}$ mm: 0 denotes any rain, 5 a larger half-hour accumulation, and 25 a rare high accumulation. These are project thresholds, not official Singapore storm categories. Three classifiers are trained separately; each station-time row stores one feature set and three target columns, without triplicating the feature dataset. The input threshold selects a trained model. Arbitrary untrained thresholds are currently unsupported; a requirement for continuous thresholds would need a distributional or threshold-conditioned extension. The 50 mm and graph neural network experiments are deferred.
+\textbf{Rainfall thresholds.} We use $q\in\{0,5,25\}$ mm for three targets: any rain, accumulation above 5 mm and accumulation above 25 mm. One classifier is trained for each target. Each station-time row retains one feature set and three label columns, and prediction uses the model corresponding to the input threshold.
 
-\textbf{Valid labels.} Require exactly six distinct valid future five-minute slots; the current reading is excluded. Round totals to nine decimal places before applying strict exceedance, so equality is negative. A missing future slot invalidates the window; missing rain is not filled with zero. Treating reading timestamps as interval ends is an operational assumption; the archive does not establish real-time first-publication times.
+\textbf{Label construction.} Taking timestamps as five-minute interval ends, sum the six valid rainfall readings in $(t,t+30\mathrm{min}]$ and compare the total at nine decimal places with the threshold. The current interval is excluded from future accumulation. A label is constructed only when all six future intervals have valid readings. Equality with the threshold is labelled zero.
 \begin{center}\begin{tabular}{lrrrr}\toprule
 Purpose & Valid rows & $>0$ positives & $>5$ positives & $>25$ positives\\\midrule
 2017--2022: eligible training pool & 34,542,285 & -- & -- & --\\
-2017--2022: fixed 5\% training sample & 1,727,966 & 103,477 & 13,712 & 926\\
+2017--2022: training sample (about 5\%) & 1,727,966 & 103,477 & 13,712 & 926\\
 2023 H1: probability calibration & 3,325,499 & 251,794 & 30,699 & 1,532\\
 2023 H2: model selection & 3,393,373 & 197,358 & 28,000 & 2,487\\
 2024: final test & 6,374,476 & 405,430 & 53,193 & 3,517\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Temporal leakage control.} Label windows cannot cross training, calibration, selection or test boundaries. The July split purges 402 additional rows. A deterministic hash sample with seed 5208 selects 5\% of eligible real training rows, shared by all models. Training is resource-limited, not full-data training. Validation and test retain their complete natural distributions. The full feature table contains 47,636,035 rows. Since Task 1 explored 2024, it is a later chronological test excluded from model selection, rather than data never inspected anywhere in the study.
+\textbf{Training sample.} We select approximately 5\% of the 34,542,285 eligible training rows from 2017--2022, yielding 1,727,966 observations. Inclusion is determined by a hash of station and time with seed 5208, and all comparison models use the same sample. The first half of 2023 fits probability-calibration functions; the second half compares models. The 2024 data form the test set.
+
 \clearpage\section*{5. From Task 1 findings to feature engineering}
 \begin{center}\begin{tabular}{p{5.2cm}p{9.0cm}p{9.0cm}}\toprule
 Task 1 motivation & Construction & Implemented inputs\\\midrule
 Afternoon peak varies by month & Cyclic local hour/month and four interactions & 8 calendar features; no year ID\\
 Station differences and spatial correlation & Station ID, coordinates, three closest neighbours & Neighbour means, maxima, wet fractions\\
 Short-term rainfall persistence & Latest reading and 5/10/15/30/60-min lags & 15/30/60-min totals, changes, wet-spell length\\
-Missingness and unequal coverage & Valid counts, availability and reading age & Missing flags, available-neighbour counts/distances\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{As-of availability.} Search the preceding 90 minutes and require observation, aligned-slot and stored-update times to be no later than $t$. A latest reading older than 30 minutes is unavailable. Rolling totals end at the latest eligible reading and include its age and valid-window counts. Exact lags use calendar slots; the preceding row after a gap is not a five-minute lag. Stored archive update times are conservative availability proxies, not first-publication timestamps.
+\textbf{Historical features.} Use observations in the preceding 90 minutes with observation and stored-update times no later than prediction time. A latest reading older than 30 minutes is marked unavailable. Lagged rainfall is retrieved on the fixed five-minute grid. Totals over 15/30/60 minutes end at the latest available reading, accompanied by observation counts and reading age.
 
 \textbf{Neighbour construction.} Choose the three closest other stations using coordinates known by prediction time. Disable a station spatial contribution if it moves more than $0.005^\circ$ from its initial location. Join only readings available as of $t$. Aggregate latest amounts and past 30-minute totals into means, maxima and available counts, plus wet fractions, mean distances and ages. Spark handles full-data time windows, features and neighbour joins; a small coordinate table supports distance calculations.
 
-\textbf{Preprocessing and dimensions.} Explicitly list 46 numeric candidates and station ID, excluding future totals, labels and audit columns. Omit the constant geometry-change value in the fixed training sample, retaining 45 values and 27 informative missing flags. Mean imputation is fitted only on the training sample. Linear models use station one-hot encoding, giving 162 dimensions. Trees use station indices with categorical metadata, giving 73 dimensions. XGBoost explicitly marks station as categorical rather than treating its index as a continuous ordering.
+\textbf{Time encoding.} Let $h$ denote local hour including fractional minutes and $m$ denote month. Hour features are $\sin(2\pi h/24)$ and $\cos(2\pi h/24)$; month features are $\sin[2\pi(m-1)/12]$ and $\cos[2\pi(m-1)/12]$. Their four pairwise products give interactions, for eight time features in total. Cyclic encoding keeps neighbouring 23:00 and 00:00, and December and January, close in feature space.
+
+\textbf{Model-input processing.} Linear models one-hot encode station ID; tree models treat station ID as categorical. Missing numeric values are filled with training-sample means and accompanied by missing indicators. Constant values are excluded. Final input dimensions are 162 for linear models and 73 for trees. Logistic regression and SVM use feature standardization during fitting.
 \begin{center}\begin{tabular}{lrrr}\toprule
 L2 logistic feature ablation & Test PR-AUC: 0 mm & 5 mm & 25 mm\\\midrule
 Calendar and station & 0.11652 & 0.01647 & 0.00136\\
@@ -597,7 +605,7 @@ Add own-station history & 0.53061 & 0.15788 & 0.01485\\
 Add neighbours & 0.55978 & 0.17909 & 0.01734\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Ablation interpretation.} The initial nine natural-distribution logistic models share the training sample, use full 2023 validation, have no subsequent Platt calibration and use an 80-iteration cap. Own-station history supplies the largest gain; neighbours further improve PR-AUC for all targets. The later comparison therefore retains the full feature set. This supports feature groups, not the usefulness of every individual variable. Later parameters are not reselected from test results.
+\textbf{Feature-group comparison.} L2 logistic models compare three progressively expanded inputs: time and station, added own-station history, and added neighbour history. Each group trains three targets, for nine models. This initial comparison shares the training sample and full 2023 validation, uses an 80-iteration cap and no probability calibration. Own-station history substantially improves test PR-AUC for all targets, and neighbour history provides further gains. Subsequent model comparisons therefore use the complete feature set.
 \clearpage\section*{6. Models, imbalance policies and probability calibration}
 \begin{center}\begin{tabular}{p{6cm}p{17cm}}\toprule
 Model & Fixed parameters\\\midrule
@@ -607,11 +615,11 @@ GBT (MLlib) & 40 rounds, depth 4, step 0.1, 128 bins, minimum 20 rows/node\\
 XGBoost (Spark interface) & 80 trees, depth 4, learning rate 0.1, 64 bins, child weight 20; $L_2=1$\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Spark role.} The first three algorithms use \texttt{pyspark.ml}, the MLlib DataFrame API. XGBoost uses the external \texttt{SparkXGBClassifier}, not an MLlib built-in. Training, prediction and full-data evaluation run through Spark; XGBoost uses two CPU workers. Parameters are fixed in advance with seed 5208, without a systematic hyperparameter-optimization claim. All nine SVM and two weighted logistic candidates reach the 100-iteration cap; additional iterations could change the comparison.
+\textbf{Implementation.} Logistic, linear SVM and GBT use \texttt{pyspark.ml}; XGBoost uses \texttt{SparkXGBClassifier} with two CPU workers. All models use the fixed parameters listed above and random seed 5208. Nine SVM and two weighted logistic models reach the 100-iteration cap.
 
 \textbf{Three training policies.} Natural distribution assigns unit weights. Balanced weighting uses $w_+=N/(2P)$ and $w_-=N/[2(N-P)]$, giving equal class mass and overall mean weight one. Constrained SMOTE targets 20\% positives, caps their total at ten times the original positives, and augments training only. Calibration, selection and test are neither resampled nor class-weighted.
 
-\textbf{Why constrain SMOTE?} Unrestricted interpolation can create invalid station encodings, broken cyclic calendars or contradictory wet counts. Here, search up to five minority neighbours only within the same station, missingness, discrete-state and rain-zero pattern. Interpolate only 16 continuous rain features with one shared coefficient. Calendar, coordinates, availability counts, wet fractions and ages remain fixed; isolated profiles fall back to duplication. Augmented vectors pass nonnegativity, cyclic-norm, complete-total ordering and wet-count consistency checks. Single-thread sklearn performs minority-neighbour search in a bounded training pool; Spark performs the remaining data and model operations.
+\textbf{Constrained SMOTE.} To retain relationships among station, time and historical rainfall, search up to five neighbours among minority examples with the same station, missingness, discrete states and rainfall-zero pattern. Interpolate 16 continuous rainfall features using one coefficient; time encoding, coordinates, observation counts, wet fractions and ages stay fixed. Examples without suitable neighbours are duplicated. Generated features satisfy nonnegative rainfall, ordering of complete totals and wet-count consistency. Single-thread sklearn searches training minority examples; other data processing and training use Spark.
 \begin{center}\begin{tabular}{rrrrr}\toprule
 Threshold mm & Added rows & Augmented positives (\%) & Rows with changed rain features & Isolated-profile copies\\\midrule
 0 & 302,646 & 20.000 & 129,231 & 73,685\\
@@ -619,13 +627,13 @@ Threshold mm & Added rows & Augmented positives (\%) & Rows with changed rain fe
 25 & 8,334 & 0.533 & 773 & 6,061\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Calibration.} Fit a Platt map for each candidate on naturally distributed 2023 H1: $\hat p=\sigma(a z+b)$ with $a\geq0$, using MLlib logistic regression with regularization $10^{-6}$. This converts SVM margins into probabilities and adjusts probability scales affected by weighting or SMOTE. Calibration does not guarantee accurate probabilities in a later year.
+\textbf{Probability calibration (Platt method).} After training each base classifier, fit a score-to-probability function on 2023 H1 observations: $\hat p=1/[1+\exp(-(az+b))]$, where $z$ is the raw model score and $a,b$ are fitted parameters with $a\geq0$. This converts SVM scores into probabilities and adjusts probability scales after weighting or SMOTE. The aim is agreement between predicted probabilities and observed frequencies: for example, approximately 10\% of examples assigned about 10\% probability should be positive. The calibration function is fitted using MLlib logistic regression with regularization $10^{-6}$.
 \clearpage\section*{7. Evaluation protocol and validation selection}
 
-\textbf{Primary metrics.} ROC-AUC measures positive-negative ranking; random ranking is about 0.5. PR-AUC emphasizes positive precision and recall and is more informative for rare events. We use Spark trapezoidal PR integration over exact score ranks (\texttt{numBins=0}), not sklearn average precision. Uninformative ranking has a reference PR level near prevalence: 0.06360, 0.008345 and 0.0005517 for the three test targets.
+\textbf{Evaluation metrics.} ROC-AUC measures positive-negative ranking, with random-ranking reference 0.5. PR-AUC combines precision and recall and is useful when positives are rare. Under random ranking, precision at different recall levels approaches positive prevalence $\pi$, giving a PR-area reference near $\pi$. Test prevalences are 0.06360, 0.008345 and 0.0005517. Both ROC-AUC and PR-AUC use Spark integration over exact score ranks.
 \[\mathrm{Brier}=\frac{1}{n}\sum_{i=1}^{n}(\hat p_i-y_i)^2,\qquad \mathrm{Precision}=\frac{TP}{TP+FP},\quad\mathrm{Recall}=\frac{TP}{TP+FN}.\]
 
-\textbf{Probability quality and point classification.} Lower Brier is better, compared against a constant prediction equal to real-training prevalence. Reliability curves compare mean predictions with observed frequencies in approximately equal-mass bins; score ties merge groups, so there need not be exactly 20 points. Precision, recall, F1 and accuracy are supplementary. Choose a probability cutoff from a candidate grid by selection-set F1, then freeze it. This classification cutoff differs from the input rainfall threshold $q$.
+\textbf{Probability evaluation.} Brier score is mean squared error between predicted probabilities and labels; smaller is better. The baseline always predicts training-sample prevalence. Reliability plots group test examples with similar predictions and compare mean predicted probability on the horizontal axis with actual positive frequency on the vertical axis; ideal agreement is $y=x$. A validation-selected probability cutoff maximizing F1 supplies precision, recall, F1 and accuracy. This probability cutoff acts on model output and differs from the rainfall threshold $q$ defining labels.
 \begin{center}\begin{tabular}{lrrr}\toprule
 Algorithm / policy & Selection PR-AUC: 0 mm & 5 mm & 25 mm\\\midrule
 Logistic / Natural & 0.54547 & 0.20932 & 0.03221\\
@@ -642,7 +650,7 @@ XGBoost / Balanced & 0.58186 & 0.23002 & 0.02701\\
 XGBoost / SMOTE & 0.57796 & 0.22531 & 0.03310\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Frozen selection.} Choose the policy for each algorithm and threshold by 2023 H2 PR-AUC, using Brier only to break ties, then choose the default algorithm. Default routing is natural XGBoost for 0 mm, balanced XGBoost for 5 mm, and SMOTE logistic for 25 mm. Evaluate the 12 selected algorithm-threshold models on full 2024. SMOTE improves some linear candidates, but GBT selects natural training for all targets; it does not universally improve models.
+\textbf{Model selection.} Compare training policies for each algorithm and rainfall threshold by 2023 H2 validation PR-AUC, using Brier to resolve ties. The final models are naturally trained XGBoost for 0 mm, class-weighted XGBoost for 5 mm, and SMOTE logistic for 25 mm. All 12 models selected across algorithms and targets are evaluated on full 2024 test data.
 \clearpage\section*{Figure 7: imbalance policies on the selection set}
 \begin{center}\begin{tikzpicture}
 \begin{axis}[reportaxis,at={(0.0cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>0$ mm},ylabel={PR-AUC},xtick={0,1,2,3},xticklabels={LR,SVM,GBT,XGB},ymin=0,legend style={at={(0.5,-0.16)},anchor=north,legend columns=3},ybar,bar width=7pt]
@@ -663,8 +671,8 @@ XGBoost / SMOTE & 0.57796 & 0.22531 & 0.03310\\
 \end{axis}
 \end{tikzpicture}\end{center}\vspace{7mm}
 
-\textbf{Reading the figure.} Each panel represents one rainfall threshold. Three bars per algorithm compare training policies on the complete naturally distributed selection set. Higher thresholds are rarer; panels use separate vertical scales. Trees lead at 0 mm, balanced XGBoost is best at 5 mm, and SMOTE logistic has the highest selection PR-AUC at 25 mm. Policy effectiveness depends on algorithm and target, not simply on increasing training positives.
-\clearpage\section*{8. Chronological test results in 2024}
+\textbf{Validation findings.} Trees outperform linear models in PR-AUC at 0 mm. Balanced XGBoost performs best at 5 mm, while SMOTE logistic performs best at 25 mm. SMOTE improves some linear models, whereas GBT obtains its highest validation PR-AUC with natural training for all targets. Imbalance-policy benefits vary by algorithm and target.
+\clearpage\section*{8. Test results in 2024}
 \begingroup\small
 \begin{center}\begin{tabular}{rl lrrr}\toprule
 Rainfall threshold mm & Algorithm & Selected policy & ROC-AUC & PR-AUC & Brier\\\midrule
@@ -684,15 +692,15 @@ Rainfall threshold mm & Algorithm & Selected policy & ROC-AUC & PR-AUC & Brier\\
 
 \textbf{Test size and baselines.} Each target is evaluated on 6,374,476 real windows with prevalences of 6.3602\%, 0.83447\% and 0.055173\%. Constant training-prevalence Brier baselines are 0.0595707, 0.0082752 and 0.0005514. Always predicting negative gives accuracies of 93.64\%, 99.17\% and 99.945\%, showing why accuracy cannot replace rare-event detection. All table results use calibrated probabilities.
 
-\textbf{Interpretation.} XGBoost test PR-AUC is 0.60797, 0.21299 and 0.01918 for the three targets. At 25 mm, ROC-AUC remains 0.88889 but PR-AUC is low: rare events can be enriched, yet reliable detection remains difficult. The 25 mm GBT Brier of 0.0005618 is worse than the constant baseline. The default 25 mm model remains validation-selected logistic; it is not switched to XGBoost after inspecting test results.
+\textbf{Test findings.} XGBoost test PR-AUC is 0.60797, 0.21299 and 0.01918 across the three targets. Its 25 mm ROC-AUC is 0.88889 while PR-AUC remains low, reflecting the difficulty of detecting rare high-rainfall events. At this threshold, GBT Brier is 0.0005618, above the constant baseline, showing that ranking and probability accuracy need separate assessment. The final 25 mm model remains validation-selected SMOTE logistic.
 \begin{center}\begin{tabular}{rlrrr}\toprule
-Default target mm & Algorithm & Training diagnostic PR-AUC & Selection PR-AUC & Test PR-AUC\\\midrule
+Rainfall threshold mm & Algorithm & Training PR-AUC & Validation PR-AUC & Test PR-AUC\\\midrule
 0 & XGB & 0.61237 & 0.58368 & 0.60797\\
 5 & XGB & 0.22789 & 0.23002 & 0.21299\\
 25 & LOGISTIC & 0.04515 & 0.03520 & 0.01805\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{In-sample and out-of-sample evaluation.} Training diagnostics use the same deterministic 20\% subset of original real training rows (344,957 rows), excluding synthetic rows. Selection and test are evaluated in full. Their prevalences differ, so PR-AUC gaps are not entirely attributable to overfitting. Natural GBT at 25 mm has training diagnostic PR-AUC 0.17452 versus selection 0.03460, indicating rare-label generalization difficulty. The 926 original training positives can be overlapping windows, not 926 independent storms.
+\textbf{Training and test comparison.} Training metrics use a fixed 20\% subset of original training observations (344,957 rows), while validation and test use all eligible rows. Naturally trained GBT at 25 mm has training PR-AUC 0.17452 and validation PR-AUC 0.03460, a substantial gap. Positive prevalence differs by period, so changes in PR-AUC also reflect event frequency.
 \endgroup
 \clearpage\section*{Figure 8: test ranking and probability error}
 \begin{center}\begin{tikzpicture}
@@ -710,37 +718,31 @@ Default target mm & Algorithm & Training diagnostic PR-AUC & Selection PR-AUC & 
 \end{axis}
 \end{tikzpicture}\end{center}
 
-\textbf{Reference lines.} Orange dashed lines show test prevalence, an uninformative-ranking PR reference. Bars use the frozen algorithm-specific policies from the preceding table. Although 25 mm results exceed the roughly 0.00055 reference, absolute PR-AUC remains small. High ROC-AUC does not imply high precision for extreme rain. Probability errors are assessed in the Brier table and the next reliability plots.
+\textbf{Model comparison.} XGBoost obtains the highest test PR-AUC for all three targets. The orange dashed line denotes the approximate random-ranking reference, equal to test prevalence. At 25 mm, PR-AUC exceeds the roughly 0.00055 reference but remains low in absolute terms, making rare-event prediction the most difficult target.
 \clearpage\section*{Figure 9: reliability curves and probability quality}
 \begin{center}\begin{tikzpicture}
-\begin{axis}[reportaxis,at={(0.0cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>0$ mm},xlabel={Mean predicted probability (\%)},ylabel={Observed frequency (\%)},xmin=0,ymin=0,xmax=100.00000,ymax=100.00000,legend style={at={(0.5,-0.22)},anchor=north,legend columns=2}]
-\addplot[gray,dashed,forget plot] coordinates {(0,0) (100.00000,100.00000)};
-\addplot[teal,mark=*,mark size=1.3pt,thick] coordinates {(1.772303526,0.656737456) (2.035320340,0.892113852) (2.242283078,1.336511038) (2.442142951,1.531170023) (2.647032069,1.477202334) (2.850594496,1.363889659) (3.055851066,1.564829307) (3.291052284,1.897604047) (3.568590020,2.161988626) (3.869340929,2.335352952) (4.195230405,2.620976539) (4.523296220,3.114469201) (4.845314306,3.494862989) (5.160896871,3.872402121) (5.464412496,4.231934564) (5.811063546,4.827043713) (6.302657527,6.382198422) (8.481688742,13.020539796) (61.915756799,61.521227075) (99.355640013,92.180721089)};
-\addplot[orange!85!black,mark=*,mark size=1.3pt,thick] coordinates {(3.854775101,2.562704338) (5.051228624,13.571511244) (60.782990684,63.630755062)};
-\addplot[blue!70!black,mark=*,mark size=1.3pt,thick] coordinates {(2.000029229,0.772061658) (2.031893364,0.972591737) (2.087367300,1.130803173) (2.150442580,1.140473513) (2.247148442,1.060069084) (2.335795244,1.430463721) (2.465152743,2.307479113) (2.658143451,2.486282395) (2.840971763,3.064381322) (2.943809993,3.193758634) (3.250044188,4.093217987) (3.806397635,5.925798533) (6.528694121,9.226984760) (34.637658523,33.722761880) (87.948473554,81.552385968)};
-\addplot[red!75!black,mark=*,mark size=1.3pt,thick] coordinates {(0.852625912,0.502822461) (1.072567933,0.745904644) (1.236686452,0.822919461) (1.359075165,0.934597762) (1.462321908,1.050451250) (1.573590204,1.332677541) (1.706915131,1.450285010) (1.861537722,1.504072043) (2.048369519,1.644242339) (2.302921436,2.071283034) (2.598982811,2.377636352) (2.918260458,2.533327606) (3.186747787,2.907308209) (3.439855676,3.189007579) (3.777322545,3.643752749) (4.551300386,4.364064099) (6.317774632,6.278708373) (16.545415401,16.396645694) (62.850706560,56.669438656) (96.659223716,96.517825663)};
-\legend{LR,SVM,GBT,XGB}
+\begin{axis}[reportaxis,at={(0.0cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>0$ mm},xlabel={Mean predicted probability (\%)},ylabel={Observed frequency (\%)},xmin=0,ymin=0,xmax=100,ymax=100,xtick={0,20,40,60,80,100},ytick={0,20,40,60,80,100},scaled ticks=false,legend style={at={(0.5,-0.24)},anchor=north,legend columns=1}]
+\addplot[gray,dashed,thick] coordinates {(0,0) (100,100)};
+\addplot[teal,mark=*,mark size=1.6pt,thick] coordinates {(0.852625912,0.502822461) (1.072567933,0.745904644) (1.236686452,0.822919461) (1.359075165,0.934597762) (1.462321908,1.050451250) (1.573590204,1.332677541) (1.706915131,1.450285010) (1.861537722,1.504072043) (2.048369519,1.644242339) (2.302921436,2.071283034) (2.598982811,2.377636352) (2.918260458,2.533327606) (3.186747787,2.907308209) (3.439855676,3.189007579) (3.777322545,3.643752749) (4.551300386,4.364064099) (6.317774632,6.278708373) (16.545415401,16.396645694) (62.850706560,56.669438656) (96.659223716,96.517825663)};
+\legend{Ideal calibration,Natural XGBoost}
 \end{axis}
-\begin{axis}[reportaxis,at={(8.3cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>5$ mm},xlabel={Mean predicted probability (\%)},ylabel={Observed frequency (\%)},xmin=0,ymin=0,xmax=100.00000,ymax=100.00000,legend style={at={(0.5,-0.22)},anchor=north,legend columns=2}]
-\addplot[gray,dashed,forget plot] coordinates {(0,0) (100.00000,100.00000)};
-\addplot[teal,mark=*,mark size=1.3pt,thick] coordinates {(0.242047983,0.082948879) (0.297347240,0.039018623) (0.338620197,0.104782159) (0.369840191,0.123405528) (0.398354877,0.158674023) (0.426616943,0.179955328) (0.459549634,0.258025786) (0.498182405,0.277439201) (0.540091669,0.334445039) (0.589246574,0.322167792) (0.642373238,0.323373471) (0.696721413,0.353045993) (0.750683580,0.401121263) (0.803757393,0.540354453) (0.860389541,0.613020275) (0.927219733,0.756623351) (1.013367359,0.903837234) (1.206184758,1.710396985) (6.848777811,10.660921405)};
-\addplot[orange!85!black,mark=*,mark size=1.3pt,thick] coordinates {(0.705673032,0.733957457) (0.728615257,0.213533192) (0.736950798,0.174455217) (0.745589114,0.289263704) (0.754905455,0.516590174) (5.550822523,12.611644062)};
-\addplot[blue!70!black,mark=*,mark size=1.3pt,thick] coordinates {(0.476608092,0.131545964) (0.485128983,0.241200729) (0.502346808,0.417614160) (0.507654095,0.223863249) (0.522292100,0.459914947) (0.527824236,0.507139611) (0.542510326,0.914153419) (0.618912095,1.445511640) (7.592074677,9.306294013) (94.102967154,63.001215067)};
-\addplot[red!75!black,mark=*,mark size=1.3pt,thick] coordinates {(0.040411954,0.041086181) (0.062355452,0.066121904) (0.080179791,0.072386388) (0.097449159,0.081602878) (0.114885824,0.102406244) (0.134465328,0.105101884) (0.155650828,0.127771034) (0.181209230,0.190781441) (0.211564131,0.249944423) (0.248629151,0.287942860) (0.292209417,0.354506994) (0.341664033,0.334500493) (0.394263705,0.373142471) (0.454331095,0.471707769) (0.530681569,0.484189812) (0.630332173,0.499518333) (0.792167377,0.756827404) (1.147436471,1.146702340) (2.271118362,2.671347647) (18.007763284,17.217826740)};
+\begin{axis}[reportaxis,at={(8.3cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>5$ mm},xlabel={Mean predicted probability (\%)},ylabel={Observed frequency (\%)},xmin=0,ymin=0,xmax=20,ymax=20,xtick={0,5,10,15,20},ytick={0,5,10,15,20},scaled ticks=false,legend style={at={(0.5,-0.24)},anchor=north,legend columns=1}]
+\addplot[gray,dashed,thick] coordinates {(0,0) (20,20)};
+\addplot[teal,mark=*,mark size=1.6pt,thick] coordinates {(0.040411954,0.041086181) (0.062355452,0.066121904) (0.080179791,0.072386388) (0.097449159,0.081602878) (0.114885824,0.102406244) (0.134465328,0.105101884) (0.155650828,0.127771034) (0.181209230,0.190781441) (0.211564131,0.249944423) (0.248629151,0.287942860) (0.292209417,0.354506994) (0.341664033,0.334500493) (0.394263705,0.373142471) (0.454331095,0.471707769) (0.530681569,0.484189812) (0.630332173,0.499518333) (0.792167377,0.756827404) (1.147436471,1.146702340) (2.271118362,2.671347647) (18.007763284,17.217826740)};
+\legend{Ideal calibration,Balanced XGBoost}
 \end{axis}
-\begin{axis}[reportaxis,at={(16.6cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>25$ mm},xlabel={Mean predicted probability (\%)},ylabel={Observed frequency (\%)},xmin=0,ymin=0,xmax=1.47959,ymax=1.47959,legend style={at={(0.5,-0.22)},anchor=north,legend columns=2}]
-\addplot[gray,dashed,forget plot] coordinates {(0,0) (1.47959,1.47959)};
-\addplot[teal,mark=*,mark size=1.3pt,thick] coordinates {(0.008620441,0.002174386) (0.012254755,0.007423707) (0.014947651,0.005864862) (0.017460235,0.014495069) (0.019759626,0.009108619) (0.022039541,0.013451749) (0.024298017,0.019430338) (0.026637564,0.012006377) (0.029036328,0.014319487) (0.031446084,0.018344442) (0.034086414,0.014975178) (0.036956465,0.019560941) (0.040028228,0.028607065) (0.043385305,0.031052199) (0.047282877,0.037304225) (0.052133835,0.047985091) (0.058699729,0.068028263) (0.071109676,0.134832302) (0.371543505,0.734217297)};
-\addplot[orange!85!black,mark=*,mark size=1.3pt,thick] coordinates {(0.008942710,0.005900749) (0.014690567,0.008961210) (0.017653671,0.006090264) (0.020374646,0.011901432) (0.022839463,0.017121317) (0.025018850,0.013383960) (0.026953448,0.012276574) (0.028682455,0.012176845) (0.030379068,0.015573518) (0.032193899,0.020422925) (0.034093863,0.016275996) (0.036085628,0.013629266) (0.038219507,0.023211298) (0.040722281,0.035565217) (0.043790758,0.032457841) (0.048017780,0.052911212) (0.054564905,0.076616968) (0.066457677,0.106321464) (0.300772588,0.604078321)};
-\addplot[blue!70!black,mark=*,mark size=1.3pt,thick] coordinates {(0.040883401,0.025675639) (0.146716063,0.728543660)};
-\addplot[red!75!black,mark=*,mark size=1.3pt,thick] coordinates {(0.001572589,0.001231941) (0.002594599,0.000310547) (0.003472654,0.004000295) (0.004388935,0.003958527) (0.005289510,0.007689871) (0.006242228,0.007408459) (0.007331495,0.010223724) (0.008613299,0.012131147) (0.010072957,0.010236524) (0.011764271,0.012297983) (0.013800838,0.012950572) (0.016426250,0.022798332) (0.019815771,0.026340208) (0.024223631,0.022248094) (0.030255386,0.032273243) (0.038580928,0.045709276) (0.051428354,0.054575790) (0.073859498,0.072217541) (0.133505359,0.154864626) (1.024483495,1.321063424)};
+\begin{axis}[reportaxis,at={(16.6cm,0)},anchor=south west,width=7.4cm,height=8cm,title={$R_{30}>25$ mm},xlabel={Mean predicted probability (\%)},ylabel={Observed frequency (\%)},xmin=0,ymin=0,xmax=0.85,ymax=0.85,xtick={0,0.2,0.4,0.6,0.8},ytick={0,0.2,0.4,0.6,0.8},scaled ticks=false,legend style={at={(0.5,-0.24)},anchor=north,legend columns=1}]
+\addplot[gray,dashed,thick] coordinates {(0,0) (0.85,0.85)};
+\addplot[teal,mark=*,mark size=1.6pt,thick] coordinates {(0.008620441,0.002174386) (0.012254755,0.007423707) (0.014947651,0.005864862) (0.017460235,0.014495069) (0.019759626,0.009108619) (0.022039541,0.013451749) (0.024298017,0.019430338) (0.026637564,0.012006377) (0.029036328,0.014319487) (0.031446084,0.018344442) (0.034086414,0.014975178) (0.036956465,0.019560941) (0.040028228,0.028607065) (0.043385305,0.031052199) (0.047282877,0.037304225) (0.052133835,0.047985091) (0.058699729,0.068028263) (0.071109676,0.134832302) (0.371543505,0.734217297)};
+\legend{Ideal calibration,SMOTE logistic}
+\node[font=\scriptsize,anchor=south west,text=ink] at (axis cs:0.38,0.735) {$(0.372\%,\,0.734\%)$};
 \end{axis}
 \end{tikzpicture}\end{center}\vspace{10mm}
 
-\textbf{Reading the curves.} The grey diagonal denotes ideal calibration. Points above it indicate underprediction; below it, overprediction. Each point groups real test windows with similar scores; fewer points do not mean fewer test examples. For rare events most probabilities are near zero, and even the highest-probability group includes many low-risk windows. These curves do not fully diagnose the high-risk tail.
+\textbf{Test calibration findings.} The plots show the final selected model for each rainfall threshold. At 0 mm, the XGBoost group with mean predicted probability 96.66\% has observed frequency 96.52\%. At 5 mm, the balanced XGBoost group with mean prediction 18.01\% has observed frequency 17.22\%. For SMOTE logistic at 25 mm, the highest-prediction group contains 252,650 windows, with mean prediction 0.372\% versus actual exceedance frequency 0.734\%, indicating underestimated risk in this group. All axes use percentages.
 
-\textbf{Observed calibration benefit.} For SMOTE logistic at 25 mm, selection Brier falls from 0.0011352 before calibration to 0.0007248 afterward. Mean probability falls from 0.0055317 to 0.0004886, against actual prevalence 0.0007329. Calibration substantially corrects resampling-induced inflation but still underpredicts some risk; later test evaluation remains necessary.
-\clearpage\section*{9. Default-model point metrics and observations}
+\textbf{Before and after calibration.} For SMOTE logistic at 25 mm, validation Brier falls from 0.0011352 before calibration to 0.0007248 afterward. Mean predicted probability falls from 0.55317\% to 0.04886\%, against actual prevalence of 0.07329\%. Platt calibration reduces overall probability inflation after resampling, while higher-risk groups remain underpredicted.
+\clearpage\section*{9. Classification metrics and further analysis}
 \begin{center}\begin{tabular}{rrrrrr}\toprule
 Rainfall threshold mm & Validation-selected probability cutoff & Precision & Recall & F1 & Accuracy\\\midrule
 0 & 0.31989 & 0.61636 & 0.56524 & 0.58970 & 0.94997\\
@@ -748,44 +750,26 @@ Rainfall threshold mm & Validation-selected probability cutoff & Precision & Rec
 25 & 0.01462 & 0.05165 & 0.11288 & 0.07087 & 0.99837\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Operational interpretation.} These probability cutoffs illustrate one frozen operating point. The 25 mm F1 remains low, while high accuracy is largely due to negatives. Operational warnings could choose cutoffs based on false-alarm and missed-event costs, but optimizing cutoffs against test labels would not measure generalization. Main comparisons retain ROC-AUC and PR-AUC, with separate probability-quality assessment.
+\textbf{Classification findings.} Test classification metrics use probability cutoffs chosen on validation. At 25 mm, low F1 coexists with high accuracy because negatives dominate. We therefore compare models primarily by ROC-AUC and PR-AUC, and evaluate probability predictions using Brier score and reliability curves.
 
-\textbf{Information supplied by SMOTE.} At 25 mm, 8,334 rows are added, but only 773 change rain features and 6,061 are isolated-profile copies. Constrained synthesis preserves consistency but cannot create new storm information. This helps explain why augmentation does not produce universal large improvements. Further work could enlarge real-positive training, tune rare-event weights and parameters, and evaluate by independent weather events.
+\textbf{SMOTE findings.} At 25 mm, training gains 8,334 examples; 773 change rainfall features and 6,061 are duplicates without suitable neighbours. Strict constraints leave considerable repeated information, which may explain limited gains. More real high-rainfall examples and tuned class weights or model parameters are possible improvements.
 
-\textbf{Cross-threshold consistency.} Independent training and calibration do not ensure $\hat p_{25}\leq\hat p_5\leq\hat p_0$. Across full 2024 test, selected policies within each algorithm violate this ordering for logistic: 1, SVM: 2,448, GBT: 528 and XGBoost: 247 rows, each out of 6,374,476. These checks concern same-algorithm combinations; the mixed-algorithm default route has not undergone this full-data check. Joint monotone calibration is a possible extension. The present models do not constitute a fully consistent rainfall distribution.
+\textbf{Probability ordering across thresholds.} Separately trained targets can assign higher probability to a higher rainfall threshold. Among algorithm-specific selected models on 2024 data, violations of $\hat p_{25}\leq\hat p_5\leq\hat p_0$ occur in 1 logistic, 2,448 SVM, 528 GBT and 247 XGBoost windows, each out of 6,374,476. These counts compare three models from the same algorithm. Joint constraints on the final mixed-algorithm combination could be addressed with monotone calibration.
 
-\textbf{Spatial and temporal dependence.} Nearby gauges, shared events and overlapping half-hour windows produce dependent samples. Millions of rows are not millions of independent weather events. We report descriptive test performance without confidence intervals based on independent rows. Date- or event-block resampling could assess uncertainty and further examine transfer across stations and years.
-\clearpage\section*{10. Computing resources, saved models and prediction}
+\textbf{Further analysis.} The same rainfall event can affect neighbouring stations, and consecutive half-hour windows overlap. Future evaluation could group by date or rainfall event to examine stability across stations, years and events.
+\clearpage\section*{10. AI use and references}
 
-\textbf{Actual server configuration.} gpushare runs single-machine Spark \texttt{local[2]} with CPU affinity 0 and 1, a 2 GiB driver heap, 8 shuffle partitions, single-thread BLAS/OpenMP, nice 19 and idle I/O priority, without GPU. Process-tree RSS is sampled every five seconds; exceeding 4 GiB or leaving less than 5 GiB project disk stops the job. This is sampled protection, not a hard OS quota. Benchmark sampled peak RSS is 2.719 GiB and minimum free disk 26.984 GiB, including interrupted attempts. This deployment is not a multi-node cluster and does not simulate one with Docker.
-
-\textbf{Timing and scope.} The 36 final valid base-model fits sum to about 32.05 minutes. Group worker times, including calibration, training diagnostics and selection evaluation, sum to about 58.30 minutes. The latest resumed invocation took about 48.95 minutes and reused completed groups, so it is not an end-to-end fresh-run time. Full-data label/feature preparation is separate; initial downloads, failed retries, artifact transfer and report compilation are outside the fit totals.
-
-\textbf{Saved models.} Retain all 36 comparison pipelines and the initial nine logistic models, including fitted imputation, encoding, base classifier and Platt mapping. \texttt{models/model\_comparison/manifest.json} records threshold routing, validation selection, parameters and synthesis version. The 36 comparison models contain 2,053 files and 3,869,936 bytes. Their internal metadata/data are required model artifacts, not removable statistical intermediates. Server and local model files were individually SHA256-verified.
-
-\textbf{Save/load checks.} The 12 selected full pipelines pass save/load prediction checks on 15 label-free real feature rows, including three unknown station IDs. Probability differences from separate preprocessing/model steps are zero. An archive query using only station, time and threshold, S07 at 2024-03-01 12:00:00+08:00 with 5 mm, returns 0.00618169 (about 0.618\%) from default balanced XGBoost. This verifies archive retrieval and model routing, not a live online weather service.
-\begin{verbatim}
-PYTHONPATH=.runtime/python python scripts/run_task2_models.py \
-  --predict-station S07 --predict-time 2024-03-01T12:00:00+08:00 \
-  --threshold 5
-\end{verbatim}
-
-\textbf{Material organization.} README gives environment preparation, eight-year downloads, Spark features, training, evaluation and prediction commands. Raw annual files and working directories are excluded from Git and can be downloaded again from official sources. Reports and models can be viewed and loaded directly; generating features for new historical predictions requires rebuilding the data. Standalone LaTeX and models are retained for Git backup and synchronization to the Desktop copy.
-\clearpage\section*{11. AI use, sources and reproducibility}
-\textbf{AI-use declaration.} OpenAI Codex assisted with planning, API inspection, runtime setup, PySpark cleaning, aggregation, labels and feature engineering, MLlib and XGBoost training, constrained SMOTE implementation, execution checks, metric and plotting code, bilingual LaTeX writing and translation, compilation and layout review. Weather statistics and model results come from actual runs on real annual data. SMOTE is used only in training; synthetic vectors are not presented as observations or used as validation/test examples. Group members must review the code, methods and results and take responsibility for submission.
+\textbf{AI-use declaration.} We use OpenAI Codex to assist study design, data-processing and model code, result checks and report editing. Reported rainfall statistics and model evaluations come from actual processing and model runs; SMOTE examples are used only for training.
 
 \textbf{Sources.}
 \begin{enumerate}
-\item NEA, Historical Rainfall across Singapore, annual datasets 2017--2024: \href{https://data.gov.sg/collections/2279/view}{data.gov.sg collection 2279}. Source and checksum records are generated during downloads.
-\item Meteorological Service Singapore, \href{https://www.weather.gov.sg/climate-climate-of-singapore}{Climate of Singapore}. Used only for seasonal and diurnal context, not as a replacement for project observations or proof of causation.
+\item NEA, \href{https://data.gov.sg/collections/2279/view}{Historical Rainfall across Singapore}, annual datasets 2017--2024.
+\item Meteorological Service Singapore, \href{https://www.weather.gov.sg/climate-climate-of-singapore}{Climate of Singapore}.
 \item NEA, \href{https://www.nea.gov.sg/media/news/news/index/2019-is-singapore-s-joint-warmest-year-on-record}{Review of the climate in 2019}. External context on dry conditions and the positive Indian Ocean Dipole, not an input feature in the proposed model.
-\item geoBoundaries, \href{https://www.geoboundaries.org/api/current/gbOpen/SGP/ADM0/}{Singapore ADM0 metadata}. The URA-derived outline represents 2016, under ODbL 1.0. Release metadata and GeoJSON are retained in \texttt{reports/assets/}; they are not a current coastline survey.
+\item geoBoundaries, \href{https://www.geoboundaries.org/api/current/gbOpen/SGP/ADM0/}{Singapore ADM0}, based on URA 2016 data, ODbL 1.0.
 \item Apache Spark 3.5.8, \href{https://spark.apache.org/docs/3.5.8/ml-classification-regression.html}{MLlib classification and regression documentation}, for logistic, linear SVM and GBT implementation. Evaluation uses Spark BinaryClassificationEvaluator.
 \item XGBoost, \href{https://xgboost.readthedocs.io/en/release_3.2.0/tutorials/spark_estimator.html}{PySpark estimator documentation}, for external Spark integration; the actual installed version is 3.2.0.
+\item scikit-learn, \href{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.PrecisionRecallDisplay.html}{Precision--Recall documentation} and \href{https://scikit-learn.org/stable/modules/calibration.html}{probability-calibration documentation}.
 \end{enumerate}
-
-\textbf{Reproducibility.} Source code and instructions are in \texttt{scripts/} and \texttt{README.md}. Both reports retain standalone LaTeX and PDF files. \texttt{models/} contains trained Spark pipelines, preprocessing and a threshold-routing manifest. Chart values are embedded directly in LaTeX, without separate images, statistical CSV files or interactive pages. Scripts regenerate statistics and checks in temporary working directories.
-
-\textbf{Submission status.} Materials comprise complete source code with README, trained models and a PDF report, due 18 October 2026. Both analysis and modelling tasks are complete. This report lists member names only, as requested by the group. Git backup: \url{https://github.com/Panyuxiang0830/singapore_rainfall.git}. The server project is cleaned only after full-project completion and verification of durable backups.
 
 \end{document}

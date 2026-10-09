@@ -159,7 +159,7 @@ Verify all remote assets before deleting only this project directory.
 
 `reports/Task1_Report_CN.tex` is a standalone source with Chinese text,
 formulas and nine inline TikZ/PGFPlots figure groups covering both tasks. Its compiled PDF is
-`reports/Task1_Report_CN.pdf` (21 pages). Compilation and editing instructions
+`reports/Task1_Report_CN.pdf` (20 pages). Compilation and editing instructions
 are in `reports/LATEX_CN_README.md`. The existing source is standalone: it
 can compile without deleted figures or CSV files. The current source is the reviewed complete report. Edit it in place, update the
 reviewed translation in `report_task2_content.py` or `report_translations.py`,
@@ -168,7 +168,7 @@ The legacy Chinese Task 1 generator refuses to overwrite a source containing Tas
 
 The English source is `reports/Task1_Report.tex`, translated from the reviewed
 Chinese source by `scripts/build_task1_report.py`. Its compiled output is
-`reports/Task1_Report.pdf` (21 pages). Content changes must be made in both
+`reports/Task1_Report.pdf` (20 pages). Content changes must be made in both
 languages: update `report_translations.py` or `report_task2_content.py` and their reviewed content.
 The build stops if a reviewed Chinese paragraph changes without this review.
 Both reports embed the same chart values; neither needs deleted CSV files to

@@ -367,7 +367,8 @@ apply_full_report_content(PARAGRAPHS, PARAGRAPH_SHA256, LABELS)
 def translate(source):
     lines = []
     for text in source.splitlines():
-        for prefix, english in PARAGRAPHS.items():
+        for prefix in sorted(PARAGRAPHS, key=len, reverse=True):
+            english = PARAGRAPHS[prefix]
             if text.startswith(prefix):
                 digest = hashlib.sha256(text.encode()).hexdigest()
                 if digest != PARAGRAPH_SHA256[prefix]:
