@@ -181,15 +181,19 @@ def fit_group(spark, algorithm, policy):
     begun = time.monotonic()
     kind = representation(algorithm)
     front, assembled = front_model(kind)
-    # Reading compressed Parquet can merge many files into a handful of tasks.
-    # Keep full-data instance blocks bounded independently of compressed size.
+    # Bound file-scan tasks directly. Repartitioning these wide vectors again
+    # materializes a large shuffle despite the existing 256-file Parquet cache.
+    # File splitting changes only task layout; every training row is retained.
+    spark.conf.set('spark.sql.files.maxPartitionBytes', 8 * 1024 * 1024)
+    spark.conf.set('spark.sql.files.minPartitionNum', TRAIN_PARTITIONS)
     stored_vectors = spark.read.parquet(str(vector_path('train', kind)))
     dimension = stored_vectors.first()['features'].size
     # The complete vectors already have a compressed Parquet cache. Let MLlib
     # cache its own instance blocks instead of also duplicating all vectors as
     # a much larger SQL row cache. This changes storage, never training rows.
-    train = stored_vectors.repartition(TRAIN_PARTITIONS)
-    log('MODEL_GROUP_START', algorithm=algorithm, policy=policy, rows=prepared['train_rows'], dimension=dimension)
+    train = stored_vectors
+    log('MODEL_GROUP_START', algorithm=algorithm, policy=policy, rows=prepared['train_rows'],
+        dimension=dimension, file_scan_partitions=train.rdd.getNumPartitions())
     bases, results = {}, {}
     try:
         for q in THRESHOLDS_MM:
