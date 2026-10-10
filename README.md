@@ -125,8 +125,9 @@ The runner performs these steps sequentially with checkpoints:
 and temporary vectors are under `work/`. Re-running the command resumes this
 full-data experiment. It does not reuse incompatible older model checkpoints.
 No two project runs should execute concurrently.
-Training vectors are distributed over 256 partitions before MLlib caching,
-bounding each partition's memory use while retaining every training row.
+Training vectors are written to Parquet in 256 partitions. MLlib bounds the
+file-scan partition size before caching, retaining every training row without
+an additional wide-vector shuffle.
 
 ROC-AUC and PR-AUC measure ranking. Brier score and reliability curves evaluate
 probability quality. Precision, recall, F1 and accuracy use a probability cutoff
@@ -148,6 +149,25 @@ Use `--predict-algorithm logistic|svm|xgb` to choose an algorithm's validation-s
 policy. Saved pipelines include fitted preprocessing and probability calibration.
 An archived prediction requires the corresponding prepared causal feature row.
 The three supported rainfall thresholds are 0, 5 and 25 mm.
+
+## Verified completed run
+
+The gpushare run completed all 27 full-data comparison fits and nine feature-group
+fits. Each base classifier used all 34,542,285 eligible training observations.
+Full test evaluation used 6,374,476 observations per target. Validation selected
+natural XGBoost for 0 mm and balanced XGBoost for 5 and 25 mm.
+
+All nine algorithm/threshold winners passed loading and end-to-end probability
+checks on real label-free rows and previously unseen station IDs; predictions
+matched the saved preprocessing/base/calibration sequence exactly. The prediction
+command above was also executed successfully for all three thresholds. For S07
+at 2024-03-01 12:00 Singapore time, it returned probabilities 0.0275664259,
+0.0047685057 and 0.0001335948 for 0, 5 and 25 mm, respectively.
+
+Both report sources compile successfully, and final ROC/PR curves use the complete
+test set. The saved models and reports are ready to load or read. To recreate
+historical feature rows in a fresh checkout, run data processing and feature
+construction first; the annual archives and feature Parquet are not bundled.
 
 ## Bilingual LaTeX reports and curves
 

@@ -88,7 +88,7 @@ def methods(w, prepared, baseline):
             (['2024：测试', '6,374,476', '405,430', '53,193', '3,517'], ['2024: test', '6,374,476', '405,430', '53,193', '3,517'])]
     w.table('lrrrr', ['用途', '有效行数', '$>0$ 正例', '$>5$ 正例', '$>25$ 正例'], ['Purpose', 'Rows', '$>0$ positives', '$>5$ positives', '$>25$ positives'], data)
     w.paragraph('训练与验证', '所有模型及预处理均使用 2017--2022 年全部 34,542,285 条有效训练记录。2023 年上半年拟合概率校准函数，下半年选择模型及概率判别阈值；2024 年用于测试。标签窗口不得跨上述时间边界。校准、选择和测试保留自然类别分布。',
-                'Training and validation', 'All classifiers and preprocessing use all 34,542,285 eligible 2017--2022 training records. Fit calibration on 2023 H1, select models and decision cutoffs on H2, and test on 2024. Label windows cannot cross these boundaries. Calibration, selection and test preserve natural class proportions.')
+                'Training and validation', 'All base classifiers and preprocessing use all 34,542,285 eligible 2017--2022 training records. Fit calibration on 2023 H1, select models and decision cutoffs on H2, and test on 2024. Label windows cannot cross these boundaries. Calibration, selection and test preserve natural class proportions.')
     w.section('5. 从 Task 1 到特征工程', '5. From Task 1 to feature engineering')
     w.line(r'\begingroup\small')
     w.table('p{5.2cm}p{9.0cm}p{9.0cm}', ['Task 1 依据', '构造方式', '实际输入'], ['Task 1 finding', 'Construction', 'Inputs'], [
@@ -194,7 +194,10 @@ def results(w, summary, benchmark):
     values={str(q):[[summary['test'][a]['test'][str(q)]['pr_auc'] for a in ALGORITHMS]] for q in QS}
     references={str(q):summary['test']['logistic']['test'][str(q)]['prevalence'] for q in QS}
     bar_panels(w,values,references=references)
-    w.paragraph('测试比较', '橙色虚线为测试正例比例，即随机排序的近似参考水平。最终模型依据验证集选择；测试集用于评价既定选择，不根据测试成绩重新更换模型。', 'Test comparison', 'Orange dashed lines show test prevalence, the approximate random-ranking reference. Final models are chosen on validation; test evaluates those choices without replacing them based on test scores.')
+    test_best = {str(q): summary['test'][a]['test'][str(q)] for q, a, _ in chosen}
+    pr_cn = '、'.join(f(test_best[str(q)]['pr_auc']) for q in QS)
+    pr_en = ', '.join(f(test_best[str(q)]['pr_auc']) for q in QS)
+    w.paragraph('测试比较', '最终选定模型的测试 PR-AUC 分别为 '+pr_cn+r'，均高于对应的随机排序参考水平（橙色虚线）。25 mm 目标的 PR-AUC 仍较低，强降雨识别的 Precision 与 Recall 有较大提升空间。', 'Test comparison', 'The selected models achieve test PR-AUCs of '+pr_en+'. All exceed their random-ranking references (orange dashed lines). The low PR-AUC at 25 mm leaves substantial scope to improve heavy-rain precision and recall.')
     curve_values=[json.loads((benchmark/'curves'/f'final_gt_{q}mm.json').read_text()) for q in QS]
     curve_section,reviewed=make_section(curve_values)
     w.lines.extend(curve_section.splitlines());w.pairs.update(reviewed)
@@ -214,9 +217,14 @@ def results(w, summary, benchmark):
         w.line(r'\end{axis}')
         high.append(max(points,key=lambda x:x['mean_probability']))
     w.line(r'\end{tikzpicture}\end{center}\vspace{10mm}')
-    w.paragraph('概率质量', r'将相近的预测概率分组，以组内平均预测概率为横轴，实际正例比例为纵轴。灰色虚线表示理想关系 $y=x$；曲线高于虚线表示风险低估，低于虚线表示风险高估。图中坐标均为百分比，三个目标的显示范围不同。', 'Probability quality', r'Group similar forecasts and plot mean probability against observed positive frequency. The dashed ideal is $y=x$: points above it underestimate risk; points below it overestimate risk. Coordinates are percentages, with different displayed ranges across targets.')
+    forecasts_cn = '、'.join(f"{test_best[str(q)]['mean_probability']*100:.4f}\\%" for q in QS)
+    observed_cn = '、'.join(f"{test_best[str(q)]['prevalence']*100:.4f}\\%" for q in QS)
+    w.paragraph('概率质量', '三个目标的平均预测概率为 '+forecasts_cn+'，实际发生比例为 '+observed_cn+r'。0 mm 与 5 mm 目标整体略高估风险，25 mm 目标整体低估风险。图中每个点汇总一组相近概率的预测，灰色虚线 $y=x$ 表示预测概率与实际比例一致。', 'Probability quality', 'Mean forecast probabilities are '+forecasts_cn.replace('、', ', ')+', versus observed frequencies of '+observed_cn.replace('、', ', ')+r'. Overall, the 0 and 5 mm targets slightly overestimate risk, while the 25 mm target underestimates it. Each point aggregates similar forecasts; the dashed $y=x$ line represents agreement between forecast and observed frequency.')
+    before = test_best['0']['uncalibrated_probability_quality']['brier']
+    after = test_best['0']['brier']
+    w.paragraph('校准效果', f'类别加权 XGBoost 在 5 mm 与 25 mm 目标中经校准后的 Brier score 显著降低，说明自然分布校准集有助于纠正加权训练造成的概率偏移。0 mm 目标的 Brier score 则由 {before:.7f} 变为 {after:.7f}，校准未改善该目标的测试概率误差。', 'Calibration effect', f'Calibration substantially reduces Brier scores for the class-weighted XGBoost models at 5 and 25 mm, correcting probability shifts induced by weighting. For 0 mm, Brier changes from {before:.7f} to {after:.7f}; calibration does not improve test probability error for this target.')
     last=high[2]
-    w.paragraph('稀有事件校准', f"25 mm 目标的最高平均预测概率组包含 {last['n']:,} 个窗口，平均预测概率为 {last['mean_probability']*100:.3f}\\%，实际超越比例为 {last['observed_frequency']*100:.3f}\\%。该比较揭示模型概率与实际发生频率的差异，与排序指标反映的能力不同。", 'Rare-event calibration', f"For 25 mm, the highest-mean-probability group contains {last['n']:,} windows: mean forecast {last['mean_probability']*100:.3f}\\% versus observed frequency {last['observed_frequency']*100:.3f}\\%. This measures probability reliability rather than ranking alone.")
+    w.paragraph('稀有事件校准', f"25 mm 目标的最高平均预测概率组包含 {last['n']:,} 个窗口，平均预测概率为 {last['mean_probability']*100:.3f}\\%，实际超越比例为 {last['observed_frequency']*100:.3f}\\%。该组实际发生比例高于预测概率，表明较高风险窗口中的强降雨概率仍被低估。", 'Rare-event calibration', f"For 25 mm, the highest-mean-probability group contains {last['n']:,} windows: mean forecast {last['mean_probability']*100:.3f}\\% versus observed frequency {last['observed_frequency']*100:.3f}\\%. The observed frequency exceeds the forecast, indicating underestimated heavy-rain probability in the higher-risk windows.")
     w.section('9. 分类指标与补充分析', '9. Classification metrics and further analysis')
     rows=[]
     for q,a,p in chosen:
@@ -244,6 +252,7 @@ def main():
     baseline=json.loads((args.baseline_dir/'summary.json').read_text()) if (args.baseline_dir/'summary.json').exists() else None
     source=ROOT/'reports/Task1_Report_CN.tex';old=source.read_text()
     prefix=old.split(r'\clearpage\section*{4.',1)[0]
+    prefix=prefix.replace('2026 年 10 月 9 日 / 实证分析与预测', '2026 年 10 月 11 日 / 实证分析与预测')
     suffix=r'\clearpage\section*{10.'+old.split(r'\clearpage\section*{10.',1)[1]
     w=Writer();methods(w,prepared,baseline)
     if args.methods_only:
@@ -251,6 +260,15 @@ def main():
     else:
         summary=json.loads((args.benchmark_dir/'summary.json').read_text())
         results(w,summary,args.benchmark_dir)
+        chosen=summary['selection']['selected_algorithm_by_threshold']
+        scores='、'.join(f(summary['test'][chosen[str(q)]]['test'][str(q)]['pr_auc']) for q in QS)
+        abstract_cn=r'\textbf{预测结果。}使用 2017--2022 年全部 34,542,285 条有效记录训练模型。2023 年用于概率校准和模型选择，2024 年用于测试。三个雨量阈值的最终模型均为 XGBoost，测试 PR-AUC 依次为 '+scores+r'。类别加权与 SMOTE 的收益随算法和目标变化；25 mm 强降雨预测仍有较大提升空间。'
+        abstract_en=r'\textbf{Prediction findings.} Models use all 34,542,285 eligible 2017--2022 records for training, 2023 for probability calibration and selection, and 2024 for testing. XGBoost is selected for all three thresholds, with test PR-AUCs '+scores.replace('、', ', ')+'. Weighting and SMOTE gains vary by algorithm and target; substantial room remains to improve 25 mm heavy-rain prediction.'
+        if r'\textbf{预测结果。}' in prefix:
+            prefix=re.sub(r'^\\textbf\{预测结果。\}.*$',lambda _:abstract_cn,prefix,flags=re.M)
+        else:
+            prefix=prefix.replace(r'\begin{center}\begin{tabular}{rrrrr}',abstract_cn+'\n\n'+r'\begin{center}\begin{tabular}{rrrrr}',1)
+        w.pairs[abstract_cn]=abstract_en
     text=prefix+'\n'.join(w.lines)+'\n'+suffix
     old_runtime=next(line for line in prefix.splitlines() if line.startswith(r'\textbf{Spark 配置与分工。}'))
     runtime=r'\textbf{Spark 配置与分工。}Task 1 与初始特征组比较采用单机双线程模式 \texttt{local[2]}。完整特征的模型比较与评价采用 \texttt{local[20]}，shuffle partitions 为 80，default parallelism 为 20。XGBoost 使用两个工作进程，每个任务配置 10 个 CPU。不使用 GPU，以低优先级串行执行各项实验。Spark DataFrame/SQL 与窗口函数用于全量清洗、时间聚合、标签和特征构造；模型训练与评价使用 Spark ML 管线。'
@@ -268,7 +286,8 @@ def main():
     pairs={k:v for k,v in module.LINE_PAIRS.items() if k in text};pairs.update(w.pairs)
     overrides={k:v for k,v in module.OVERRIDES.items() if v[0] in text}
     labels={k:v for k,v in module.LABELS.items() if k in text}
-    labels.update({'假正例率（FPR）':'False positive rate (FPR)','真正例率（TPR）':'True positive rate (TPR)','随机参考':'Random'})
+    labels.update({'假正例率（FPR）':'False positive rate (FPR)','真正例率（TPR）':'True positive rate (TPR)','随机参考':'Random',
+                   '2026 年 10 月 11 日 / 实证分析与预测':'11 October 2026 / Empirical analysis and prediction'})
     apply=path.read_text().split('\ndef apply(',1)[1]
     path.write_text('"""Reviewed bilingual report content generated from verified full-training results."""\nimport hashlib\n\nLINE_PAIRS = '+json.dumps(pairs,ensure_ascii=False,indent=2)+'\n\nOVERRIDES = '+json.dumps(overrides,ensure_ascii=False,indent=2)+'\n\nLABELS = '+json.dumps(labels,ensure_ascii=False,indent=2)+'\n\ndef apply('+apply)
     source.write_text(text)
