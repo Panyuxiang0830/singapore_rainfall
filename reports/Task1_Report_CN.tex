@@ -81,9 +81,9 @@
 
 \clearpage\section*{3. 计算环境与各项分析的样本范围}
 
-\textbf{计算环境。}Task 1 使用 Apple Silicon Mac：10 个逻辑 CPU、16 GiB RAM，macOS 26.5.2 ARM64，Python 3.12.14、Java Temurin 17.0.20.1+1、Spark 3.5.8。Task 2 在 gpushare 运行，环境为 Python 3.11.10、Azul Zulu Java 17.0.20.1、Spark 3.5.8、XGBoost 3.2.0。gpushare 容器配额为 42 CPU、约 667.68 GiB RAM；本项目限定使用两个 CPU，driver heap 为 2 GiB。
+\textbf{计算环境。}Task 1 使用 Apple Silicon Mac：10 个逻辑 CPU、16 GiB RAM，macOS 26.5.2 ARM64，Python 3.12.14、Java Temurin 17.0.20.1+1、Spark 3.5.8。Task 2 在 gpushare 运行，环境为 Python 3.11.10、Azul Zulu Java 17.0.20.1、Spark 3.5.8、XGBoost 3.2.0。gpushare 容器配额为 42 CPU、约 667.68 GiB RAM；完整特征的模型训练限定使用 20 个 CPU，默认 driver heap 为 6 GiB。
 
-\textbf{Spark 配置与分工。}采用单机双线程模式 \texttt{local[2]}，shuffle partitions 为 8，default parallelism 为 2，不使用 GPU。Spark DataFrame/SQL 与窗口函数用于全量清洗、时间聚合、标签和特征构造；模型训练与评价使用 Spark ML 管线。gpushare 进程使用两个 CPU，并以低优先级串行执行各项训练。
+\textbf{Spark 配置与分工。}Task 1 与初始特征组比较采用单机双线程模式 \texttt{local[2]}。完整特征的模型比较与评价采用 \texttt{local[20]}，shuffle partitions 为 80，default parallelism 为 20。XGBoost 使用两个工作进程，每个任务配置 10 个 CPU。不使用 GPU，以低优先级串行执行各项实验。Spark DataFrame/SQL 与窗口函数用于全量清洗、时间聚合、标签和特征构造；模型训练与评价使用 Spark ML 管线。一般阶段 Java 堆为 6 GiB，进程总内存停止上限为 12 GiB；XGBoost 训练和评价的总内存上限为 24 GiB。
 
 \textbf{分析样本。}各项分析根据比较目的采用相应的站点范围与数据完整性筛选条件，具体见下表。
 \begin{center}\begin{tabular}{lll}
@@ -581,6 +581,7 @@
 \textbf{训练与验证。}所有模型及预处理均使用 2017--2022 年全部 34,542,285 条有效训练记录。2023 年上半年拟合概率校准函数，下半年选择模型及概率判别阈值；2024 年用于测试。标签窗口不得跨上述时间边界。校准、选择和测试保留自然类别分布。
 
 \clearpage\section*{5. 从 Task 1 到特征工程}
+\begingroup\small
 \begin{center}\begin{tabular}{p{5.2cm}p{9.0cm}p{9.0cm}}\toprule
 Task 1 依据 & 构造方式 & 实际输入\\\midrule
 下午高峰随月份变化 & 小时、月份周期编码与交互 & 8 个日历特征；不加入年份 ID\\
@@ -595,12 +596,25 @@ Task 1 依据 & 构造方式 & 实际输入\\\midrule
 \[h_{\sin}=\sin(2\pi h/24),\quad h_{\cos}=\cos(2\pi h/24),\qquad m_{\sin}=\sin[2\pi(m-1)/12],\quad m_{\cos}=\cos[2\pi(m-1)/12].\]
 \textbf{输入处理。}缺失值填补、缺失标志和站点类别词表仅基于完整训练期拟合。线性模型对站点进行 one-hot 编码，树模型使用类别索引；常量特征排除。Logistic 与 SVM 使用特征标准化。通过九个 Logistic 模型比较日历与站点、加入本站历史、再加入邻站历史三组特征。
 
+\textbf{特征组比较设置。}九个特征组比较模型使用 L2 正则参数 0.001，最多迭代 80 次，收敛容差为 $10^{-6}$。其中 0 个模型达到设定的迭代上限。正式模型比较中的 Logistic 与 SVM 最多迭代 100 次。
+
+\textbf{特征维度。}完整输入包含 45 个数值特征和 27 个缺失标志，加上站点编码后，线性模型为 162 维，树模型为 73 维。
+
+\begin{center}\begin{tabular}{lrrr}\toprule
+L2 Logistic 特征组 & 测试 PR-AUC：0 mm & 5 mm & 25 mm\\\midrule
+日历与站点 & 0.11588 & 0.01671 & 0.00139\\
+加本站历史 & 0.53158 & 0.15868 & 0.01482\\
+再加邻站 & 0.56134 & 0.17982 & 0.01713\\
+\bottomrule\end{tabular}\end{center}
+
+\textbf{邻站信息的增量。}相对于本站历史模型，加入邻站历史后三个目标的测试 PR-AUC 依次变化 +0.02975、+0.02114、+0.00231。结果与 Task 1 的空间相关性分析一致。
+
+\endgroup
 \clearpage\section*{6. 模型、不平衡处理与概率校准}
 \begin{center}\begin{tabular}{p{6cm}p{17cm}}\toprule
 模型 & 参数\\\midrule
 L2 Logistic（MLlib） & $\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$\\
 Linear SVM（MLlib） & $\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$\\
-GBT（MLlib） & 40 轮，深度 4，步长 0.1，128 bins，叶节点最少 20 行\\
 XGBoost（Spark 接口） & 80 棵树，深度 4，学习率 0.1，64 bins，子节点权重 20；$L_2=1$\\
 \bottomrule\end{tabular}\end{center}
 
@@ -627,7 +641,7 @@ XGBoost（Spark 接口） & 80 棵树，深度 4，学习率 0.1，64 bins，子
 \item Meteorological Service Singapore，\href{https://www.weather.gov.sg/climate-climate-of-singapore}{Climate of Singapore}。
 \item NEA，\href{https://www.nea.gov.sg/media/news/news/index/2019-is-singapore-s-joint-warmest-year-on-record}{2019 年气候回顾}。用于偏干年份与正位相印度洋偶极子的外部背景，未用作模型预测特征。
 \item geoBoundaries，\href{https://www.geoboundaries.org/api/current/gbOpen/SGP/ADM0/}{Singapore ADM0}；轮廓源自 URA 2016 年资料，ODbL 1.0。
-\item Apache Spark 3.5.8，\href{https://spark.apache.org/docs/3.5.8/ml-classification-regression.html}{MLlib 分类与回归文档}，用于 Logistic、Linear SVM 与 GBT 实现；评价采用 Spark BinaryClassificationEvaluator。
+\item Apache Spark 3.5.8，\href{https://spark.apache.org/docs/3.5.8/ml-classification-regression.html}{MLlib 分类与回归文档}，用于 Logistic 与 Linear SVM 实现；评价采用 Spark BinaryClassificationEvaluator。
 \item XGBoost，\href{https://xgboost.readthedocs.io/en/release_3.2.0/tutorials/spark_estimator.html}{PySpark Estimator 文档}，用于外部 Spark XGBoost 集成；实际安装版本为 3.2.0。
 \item scikit-learn，\href{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.PrecisionRecallDisplay.html}{Precision--Recall 文档}与\href{https://scikit-learn.org/stable/modules/calibration.html}{概率校准文档}。
 \end{enumerate}

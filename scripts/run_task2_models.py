@@ -1,4 +1,4 @@
-"""Sequential, resumable 36-candidate Spark model/imbalance benchmark."""
+"""Sequential, resumable 27-candidate Spark model/imbalance benchmark."""
 import argparse
 import fcntl
 import hashlib
@@ -9,7 +9,7 @@ import time
 
 from run_task1 import ROOT, run
 
-ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
+ALGORITHMS = ['logistic', 'svm', 'xgb']
 POLICIES = ['natural', 'balanced', 'smote']
 
 
@@ -77,7 +77,7 @@ def main():
     if args.fit_only:
         return
     if set(args.algorithms) != set(ALGORITHMS) or set(args.policies) != set(POLICIES):
-        print('PARTIAL_BENCHMARK_COMPLETE; full selection requires all four algorithms and three policies', flush=True)
+        print('PARTIAL_BENCHMARK_COMPLETE; full selection requires all three algorithms and three policies', flush=True)
         return
     run(base+['--phase', 'select', '--job', 'validation_selection'], env)
     for algorithm in args.algorithms:

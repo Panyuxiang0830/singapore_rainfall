@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PROGRESS = ROOT/'work/task2/full_run'
 BASE = ROOT/'work/task2/logistic_full'
 BENCH = ROOT/'work/task2/model_comparison_full'
-ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
+ALGORITHMS = ['logistic', 'svm', 'xgb']
 POLICIES = ['natural', 'balanced', 'smote']
 GROUPS = ['calendar_station', 'own_history', 'neighbors']
 
@@ -108,16 +108,12 @@ def main():
     parser.add_argument('--xgb-memory-gib', type=float, default=24.)
     parser.add_argument('--cpu-threads', type=int, default=20)
     parser.add_argument('--driver-heap-gib', type=int, default=6)
-    parser.add_argument('--gbt-driver-heap-gib', type=int, default=32)
-    parser.add_argument('--gbt-memory-gib', type=float, default=48.)
     parser.add_argument('--prepare-benchmark-only', action='store_true')
     args = parser.parse_args()
     if not 1 <= args.cpu_threads <= 20:
         parser.error('--cpu-threads must be between 1 and 20')
     if args.driver_heap_gib < 1 or args.driver_heap_gib + 2 > args.memory_gib:
         parser.error('Driver heap must leave at least 2 GiB within the process-tree bound')
-    if args.gbt_driver_heap_gib < 1 or args.gbt_driver_heap_gib + 2 > args.gbt_memory_gib:
-        parser.error('GBT driver heap must leave at least 2 GiB within its process-tree bound')
     PROGRESS.mkdir(parents=True, exist_ok=True)
     lock = (PROGRESS/'run.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -129,8 +125,6 @@ def main():
          'xgb_workers': min(2, args.cpu_threads),
          'xgb_threads_per_worker': max(1, args.cpu_threads // min(2, args.cpu_threads)),
          'spark_phase_rss_limit_gib': args.memory_gib,
-         'gbt_driver_heap_gib': args.gbt_driver_heap_gib,
-         'gbt_phase_rss_limit_gib': args.gbt_memory_gib,
          'xgb_phase_rss_limit_gib': args.xgb_memory_gib,
          'free_disk_reserve_gib': 5, 'gpu': False, 'nice': 19, 'ionice_class': 3})
     if hasattr(os, 'sched_getaffinity'):
@@ -152,18 +146,15 @@ def main():
                 'TMPDIR': str(ROOT/'work/tmp')})
     env['PATH'] = env['JAVA_HOME']+'/bin:'+env['PATH']
     (ROOT/'work/tmp').mkdir(parents=True, exist_ok=True)
-    def run(name, script, *arguments, xgb=False, gbt=False):
+    def run(name, script, *arguments, xgb=False):
         from supervise_full_training import available_gib
-        required_memory = args.gbt_memory_gib if gbt else args.xgb_memory_gib if xgb else args.memory_gib
+        required_memory = args.xgb_memory_gib if xgb else args.memory_gib
         if available_gib() < required_memory+8:
             reason = 'Insufficient free memory for the bounded full-data phase'
             save(PROGRESS/'status.json', {'status': 'FAILED', 'phase': name,
                  'failure_error': reason, 'full_training_rows': 34542285})
             raise RuntimeError(reason)
         phase_env = env.copy()
-        if gbt:
-            phase_env['RAINFALL_DRIVER_HEAP_GIB'] = str(args.gbt_driver_heap_gib)
-            phase_env['RAINFALL_RSS_LIMIT_GIB'] = str(args.gbt_memory_gib)
         if xgb:
             phase_env['RAINFALL_TASK_CPUS'] = str(max(1, args.cpu_threads // min(2, args.cpu_threads)))
             phase_env['RAINFALL_RSS_LIMIT_GIB'] = str(args.xgb_memory_gib)
@@ -211,7 +202,7 @@ def main():
     for algorithm in ALGORITHMS:
         for policy in POLICIES:
             run(algorithm+'_'+policy, 'task2_models.py', '--phase', 'fit',
-                '--algorithm', algorithm, '--policy', policy, xgb=algorithm == 'xgb', gbt=algorithm == 'gbt')
+                '--algorithm', algorithm, '--policy', policy, xgb=algorithm == 'xgb')
     run('validation_selection', 'task2_models.py', '--phase', 'select')
     for algorithm in ALGORITHMS:
         run(algorithm+'_test', 'task2_models.py', '--phase', 'test', '--algorithm', algorithm, xgb=algorithm == 'xgb')

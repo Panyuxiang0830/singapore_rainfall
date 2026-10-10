@@ -81,9 +81,9 @@ Calendar denominators handle leap years. Low coverage can reflect a station oper
 
 \clearpage\section*{3. Computing environment and station scope}
 
-\textbf{Computing environment.} Task 1 runs on an Apple Silicon Mac with 10 logical CPUs, 16 GiB RAM, macOS 26.5.2 ARM64, Python 3.12.14, Java Temurin 17.0.20.1+1 and Spark 3.5.8. Task 2 runs on gpushare with Python 3.11.10, Azul Zulu Java 17.0.20.1, Spark 3.5.8 and XGBoost 3.2.0. The gpushare container quota is 42 CPUs and about 667.68 GiB RAM; this project uses two CPUs and a 2 GiB driver heap.
+\textbf{Computing environment.} Task 1 runs on an Apple Silicon Mac with 10 logical CPUs, 16 GiB RAM, macOS 26.5.2 ARM64, Python 3.12.14, Java Temurin 17.0.20.1+1 and Spark 3.5.8. Task 2 runs on gpushare with Python 3.11.10, Azul Zulu Java 17.0.20.1, Spark 3.5.8 and XGBoost 3.2.0. The gpushare container quota is 42 CPUs and about 667.68 GiB RAM; full-feature model training uses 20 CPUs and a 6 GiB default driver heap.
 
-\textbf{Spark configuration and responsibilities.} Use single-machine \texttt{local[2]}, eight shuffle partitions, default parallelism two and no GPU. Spark DataFrame/SQL and windows process full-data cleaning, aggregation, labels and features. Spark ML pipelines train and evaluate models. On gpushare, two CPUs run training phases sequentially at low priority.
+\textbf{Spark configuration and responsibilities.} Task 1 and the initial feature-group comparisons use single-machine \texttt{local[2]}. Full-feature model comparison and evaluation use \texttt{local[20]}, 80 shuffle partitions and default parallelism 20. XGBoost uses two workers with ten CPUs per task. Experiments run sequentially at low priority without a GPU. Spark DataFrame/SQL and windows process full-data cleaning, aggregation, labels and features; Spark ML pipelines train and evaluate models. Ordinary phases use a 6 GiB Java heap and a 12 GiB process-tree stop limit. XGBoost fitting and evaluation have a 24 GiB process-tree limit.
 
 \textbf{Analysis samples.} Station scope and completeness criteria are chosen according to the comparison, as summarized below.
 \begin{center}\begin{tabular}{p{7.0cm}p{6.8cm}p{10.5cm}}
@@ -581,6 +581,7 @@ Purpose & Rows & $>0$ positives & $>5$ positives & $>25$ positives\\\midrule
 \textbf{Training and validation.} All classifiers and preprocessing use all 34,542,285 eligible 2017--2022 training records. Fit calibration on 2023 H1, select models and decision cutoffs on H2, and test on 2024. Label windows cannot cross these boundaries. Calibration, selection and test preserve natural class proportions.
 
 \clearpage\section*{5. From Task 1 to feature engineering}
+\begingroup\small
 \begin{center}\begin{tabular}{p{5.2cm}p{9.0cm}p{9.0cm}}\toprule
 Task 1 finding & Construction & Inputs\\\midrule
 Afternoon peak varies by month & Cyclic hour/month and interactions & 8 calendar features; no year ID\\
@@ -595,12 +596,25 @@ Short-term persistence & Latest reading and 5/10/15/30/60-minute lags & 15/30/60
 \[h_{\sin}=\sin(2\pi h/24),\quad h_{\cos}=\cos(2\pi h/24),\qquad m_{\sin}=\sin[2\pi(m-1)/12],\quad m_{\cos}=\cos[2\pi(m-1)/12].\]
 \textbf{Input processing.} Fit imputation, missingness indicators and station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.
 
+\textbf{Feature comparison settings.} The nine ablation classifiers use L2 parameter 0.001, at most 80 iterations and tolerance $10^{-6}$. 0 reach this iteration cap. Logistic and SVM in the main algorithm comparison allow 100 iterations.
+
+\textbf{Feature dimensions.} The complete input has 45 numeric features and 27 missingness indicators. With station encoding, linear models have 162 dimensions and tree models 73.
+
+\begin{center}\begin{tabular}{lrrr}\toprule
+L2 logistic features & Test PR-AUC: 0 mm & 5 mm & 25 mm\\\midrule
+Calendar/station & 0.11588 & 0.01671 & 0.00139\\
+Add own history & 0.53158 & 0.15868 & 0.01482\\
+Add neighbours & 0.56134 & 0.17982 & 0.01713\\
+\bottomrule\end{tabular}\end{center}
+
+\textbf{Neighbour contribution.} Adding neighbour history changes test PR-AUC by +0.02975, +0.02114, +0.00231 relative to own-history models, consistent with Task 1 spatial correlations.
+
+\endgroup
 \clearpage\section*{6. Models, imbalance and calibration}
 \begin{center}\begin{tabular}{p{6cm}p{17cm}}\toprule
 Model & Parameters\\\midrule
 L2 logistic (MLlib) & $\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$\\
 Linear SVM (MLlib) & $\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$\\
-GBT (MLlib) & 40 rounds, depth 4, step 0.1, 128 bins, minimum 20 rows/node\\
 XGBoost (Spark interface) & 80 trees, depth 4, learning rate 0.1, 64 bins, child weight 20; $L_2=1$\\
 \bottomrule\end{tabular}\end{center}
 
@@ -627,7 +641,7 @@ XGBoost (Spark interface) & 80 trees, depth 4, learning rate 0.1, 64 bins, child
 \item Meteorological Service Singapore, \href{https://www.weather.gov.sg/climate-climate-of-singapore}{Climate of Singapore}.
 \item NEA, \href{https://www.nea.gov.sg/media/news/news/index/2019-is-singapore-s-joint-warmest-year-on-record}{Review of the climate in 2019}. External context on dry conditions and the positive Indian Ocean Dipole, not an input feature in the proposed model.
 \item geoBoundaries, \href{https://www.geoboundaries.org/api/current/gbOpen/SGP/ADM0/}{Singapore ADM0}, based on URA 2016 data, ODbL 1.0.
-\item Apache Spark 3.5.8, \href{https://spark.apache.org/docs/3.5.8/ml-classification-regression.html}{MLlib classification and regression documentation}, for logistic, linear SVM and GBT implementation. Evaluation uses Spark BinaryClassificationEvaluator.
+\item Apache Spark 3.5.8, \href{https://spark.apache.org/docs/3.5.8/ml-classification-regression.html}{MLlib classification and regression documentation}, for logistic and linear SVM implementation. Evaluation uses Spark BinaryClassificationEvaluator.
 \item XGBoost, \href{https://xgboost.readthedocs.io/en/release_3.2.0/tutorials/spark_estimator.html}{PySpark estimator documentation}, for external Spark integration; the actual installed version is 3.2.0.
 \item scikit-learn, \href{https://scikit-learn.org/stable/modules/generated/sklearn.metrics.PrecisionRecallDisplay.html}{Precision--Recall documentation} and \href{https://scikit-learn.org/stable/modules/calibration.html}{probability-calibration documentation}.
 \end{enumerate}

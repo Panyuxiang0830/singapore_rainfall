@@ -53,7 +53,7 @@ for group in ['calendar_station','own_history','neighbors']:
    result=json.loads(marker.read_text())
    assert result['serialization_roundtrip_passed']
    models.append(root/result['model_relative_path'])
-for algorithm in ['logistic','svm','gbt','xgb']:
+for algorithm in ['logistic','svm','xgb']:
  for policy in ['natural','balanced','smote']:
   for q in [0,5,25]:
    marker=bench/'results'/f'{algorithm}_{policy}_gt_{q}mm.json'

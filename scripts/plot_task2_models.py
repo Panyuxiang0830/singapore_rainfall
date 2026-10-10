@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
-ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
-NAMES = ['L2 Logistic', 'Linear SVM', 'MLlib GBT', 'Spark XGBoost']
+ALGORITHMS = ['logistic', 'svm', 'xgb']
+NAMES = ['L2 Logistic', 'Linear SVM', 'Spark XGBoost']
 POLICIES = ['natural', 'balanced', 'smote']
-COLORS = ['#767f8c', '#249a88', '#3e6eba', '#d07b38']
+COLORS = ['#767f8c', '#249a88', '#d07b38']
 
 
 def main():
@@ -30,12 +30,12 @@ def main():
     for q, ax in zip(thresholds, axes):
         for k, policy in enumerate(POLICIES):
             values = [data['candidates'][a][policy]['models'][q]['validation']['pr_auc'] for a in ALGORITHMS]
-            bars = ax.bar(np.arange(4)+(k-1)*.24, values, width=.24,
+            bars = ax.bar(np.arange(len(ALGORITHMS))+(k-1)*.24, values, width=.24,
                           label=['Natural', 'Class weights', 'Constrained SMOTE'][k], color=COLORS[k])
             ax.bar_label(bars, fmt='%.4f' if q == '25' else '%.3f', fontsize=7, rotation=90, padding=3)
         rate = data['candidates']['logistic']['natural']['models'][q]['validation']['prevalence']
         ax.axhline(rate, ls='--', color='#bd4444', label='Event prevalence')
-        ax.set_xticks(np.arange(4), NAMES, rotation=12, fontsize=9)
+        ax.set_xticks(np.arange(len(ALGORITHMS)), NAMES, rotation=12, fontsize=9)
         ax.set_ylim(0, ax.get_ylim()[1]*1.17)
         ax.set_title(f'Next 30 min > {q} mm')
         ax.set_ylabel('PR-AUC (higher is better)')

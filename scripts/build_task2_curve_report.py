@@ -19,7 +19,7 @@ def coordinates(points):
 
 def make_section(values):
     for q, value in zip([0, 5, 25], values):
-        assert value['threshold_mm'] == q and value['algorithm'] in ['xgb', 'logistic', 'svm', 'gbt']
+        assert value['threshold_mm'] == q and value['algorithm'] in ['xgb', 'logistic', 'svm']
         assert value['n'] == 6374476 and value['training_rows'] == 34542285
         for kind in ['roc', 'pr']:
             assert abs(value[kind+'_plot_area']-value[kind+'_auc']) <= min(1e-4, value[kind+'_auc']*.002)
@@ -27,7 +27,7 @@ def make_section(values):
     for kind, y in [('roc', 6.4), ('pr', 0.)]:
         for i, value in enumerate(values):
             q = value['threshold_mm']
-            name = {'xgb': 'XGB', 'logistic': 'LR', 'gbt': 'GBT', 'svm': 'SVM'}[value['algorithm']]
+            name = {'xgb': 'XGB', 'logistic': 'LR', 'svm': 'SVM'}[value['algorithm']]
             label_x = '假正例率（FPR）' if kind == 'roc' else 'Recall'
             label_y = '真正例率（TPR）' if kind == 'roc' else 'Precision'
             legend_position = 'at={(0.97,0.05)},anchor=south east' if kind == 'roc' else 'at={(0.97,0.97)},anchor=north east'
@@ -47,7 +47,7 @@ def make_section(values):
     body.append(r'\end{tikzpicture}\end{center}')
     policies_cn = {'natural': '自然分布', 'balanced': '类别加权', 'smote': 'SMOTE'}
     policies_en = {'natural': 'natural-distribution', 'balanced': 'class-weighted', 'smote': 'SMOTE'}
-    algorithms = {'logistic': 'Logistic', 'svm': 'SVM', 'gbt': 'GBT', 'xgb': 'XGBoost'}
+    algorithms = {'logistic': 'Logistic', 'svm': 'SVM', 'xgb': 'XGBoost'}
     models_cn = '、'.join(policies_cn[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
     models_en = ', '.join(policies_en[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
     scope = r'\textbf{评价对象。}三列依次为'+models_cn+r'，由 2023 年下半年验证集选定。所有模型使用 2017--2022 年全部 34,542,285 条有效训练记录。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。25 mm 的 PR 面板将纵轴放大至 0--0.15，以展示低 Precision 区间。'

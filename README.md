@@ -18,9 +18,7 @@ The full-training runner uses Spark `local[20]` on one machine with 20 worker
 threads, 80 shuffle partitions and default parallelism 20. It is not a multi-node cluster.
 The training runner pins 20 CPU threads, uses low process and I/O priority,
 disables GPU use, and monitors memory and disk. Default full-training driver heap is 6 GiB;
-GBT fitting uses a 32 GiB heap after full-data training exhausted 6 and 16 GiB.
-The process-tree memory guard is 12 GiB for ordinary Spark phases, 48 GiB for
-GBT fitting, and 24 GiB for XGBoost fitting/evaluation; free-disk reserve is 5 GiB. These are stop limits,
+The process-tree memory guard is 12 GiB for ordinary Spark phases and 24 GiB for XGBoost fitting/evaluation; free-disk reserve is 5 GiB. These are stop limits,
 not reservations. Each phase requires eight GiB of free-memory headroom above its limit.
 The Spark XGBoost adapter stores all dense training batches before quantizing them;
 the larger bound accommodates the complete 73-feature matrix without dropping rows.
@@ -112,8 +110,8 @@ The runner performs these steps sequentially with checkpoints:
    donor remains available; station partitions are processed sequentially to
    bound memory. Continuous rain features share one interpolation coefficient;
    station, time, missingness, zero pattern and discrete profiles remain fixed.
-5. Fit 36 models: four algorithms × three imbalance policies × three thresholds.
-   Algorithms are MLlib Logistic, Linear SVM, GBT and the XGBoost Spark estimator.
+5. Fit 27 models: three algorithms × three imbalance policies × three thresholds.
+   Algorithms are MLlib Logistic, Linear SVM and the XGBoost Spark estimator.
    Policies are natural distribution, balanced class weights and constrained SMOTE.
    Every fit retains all original eligible training observations.
 6. Fit monotone Platt probability calibration on 2023 H1.
@@ -145,7 +143,7 @@ python scripts/run_task2_models.py \
 ```
 
 The CLI uses the validation-selected algorithm/policy for the supplied threshold.
-Use `--predict-algorithm logistic|svm|gbt|xgb` to choose an algorithm's validation-selected
+Use `--predict-algorithm logistic|svm|xgb` to choose an algorithm's validation-selected
 policy. Saved pipelines include fitted preprocessing and probability calibration.
 An archived prediction requires the corresponding prepared causal feature row.
 The three supported rainfall thresholds are 0, 5 and 25 mm.

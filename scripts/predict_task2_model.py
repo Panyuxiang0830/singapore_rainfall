@@ -17,7 +17,7 @@ def main():
     parser.add_argument('--station', required=True)
     parser.add_argument('--time', required=True, help='ISO timestamp; naive times use Asia/Singapore')
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25], required=True)
-    parser.add_argument('--algorithm', choices=['logistic', 'svm', 'gbt', 'xgb'])
+    parser.add_argument('--algorithm', choices=['logistic', 'svm', 'xgb'])
     parser.add_argument('--features-root', type=Path, default=ROOT/'data/task2/features')
     parser.add_argument('--model-root', type=Path, default=ROOT/'models/model_comparison_full')
     args = parser.parse_args()

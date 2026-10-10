@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from pyspark import StorageLevel
 from pyspark.ml import PipelineModel
-from pyspark.ml.classification import GBTClassifier, LinearSVC, LogisticRegression
+from pyspark.ml.classification import LinearSVC, LogisticRegression
 from pyspark.ml.feature import VectorAssembler, VectorSlicer
 from pyspark.ml.functions import vector_to_array
 from pyspark.ml.linalg import DenseMatrix
@@ -27,7 +27,7 @@ from task2_logistic import read_years, metrics, TRAIN_PARTITIONS
 WORK = ROOT/'work/task2/model_comparison_full'
 MODELS = ROOT/'models/model_comparison_full'
 VERSION = 'full_training_cal2023H1_select2023H2_v3'
-ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
+ALGORITHMS = ['logistic', 'svm', 'xgb']
 POLICIES = ['natural', 'balanced', 'smote']
 BASE_WORK = ROOT/'work/task2/logistic_full'
 BASE_MODELS = ROOT/'models/logistic_baseline_full'
@@ -140,12 +140,6 @@ def estimator(algorithm, q, dimension):
                                   elasticNetParam=0, standardization=True, maxIter=100, tol=1e-6)
     if algorithm == 'svm':
         return LinearSVC(**shared, regParam=0.001, standardization=True, maxIter=100, tol=1e-6)
-    if algorithm == 'gbt':
-        # Spark 3.5 exposes raw/probability output setters on the fitted GBT model.
-        gbt_shared = {k: v for k, v in shared.items() if k != 'rawPredictionCol'}
-        return GBTClassifier(**gbt_shared, maxIter=40, maxDepth=4,
-                             stepSize=0.1, maxBins=128, minInstancesPerNode=20,
-                             maxMemoryInMB=128, seed=5208)
     if algorithm == 'xgb':
         from xgboost.spark import SparkXGBClassifier
         # Categorical station index avoids numeric station ordering and fractional one-hot IDs.
@@ -158,12 +152,6 @@ def estimator(algorithm, q, dimension):
                    reg_lambda=1.0, reg_alpha=0.0, subsample=1.0, colsample_bytree=1.0,
                    random_state=5208, verbosity=0)
     raise ValueError(algorithm)
-
-
-def configure_outputs(model, algorithm, q):
-    if algorithm == 'gbt':
-        model.setRawPredictionCol(f'raw_{q}').setProbabilityCol(f'base_prob_{q}')
-    return model
 
 
 def platt_estimator(q):
@@ -220,7 +208,7 @@ def fit_group(spark, algorithm, policy):
                     'features', F.col('label').alias(label)).withColumn('weight', F.lit(1.0))
                 fitting = fitting.unionByName(added)
             start = time.monotonic()
-            base = configure_outputs(estimator(algorithm, q, dimension).fit(fitting), algorithm, q)
+            base = estimator(algorithm, q, dimension).fit(fitting)
             elapsed = time.monotonic()-start
             PipelineModel(stages=[base]).write().overwrite().save(str(base_path))
             base_config = {p.name: v for p, v in base.extractParamMap().items() if p.name not in ['arbitrary_params_dict']}
@@ -447,11 +435,9 @@ def check(spark):
     tiny = VectorAssembler(inputCols=['rain_feature', 'station_index'], outputCol='features').transform(indexed).withColumn('weight', F.lit(1.0))
     for algorithm in ALGORITHMS:
         est = estimator(algorithm, 0, 2)
-        if algorithm == 'gbt':
-            est.setMaxIter(3)
-        elif algorithm == 'xgb':
+        if algorithm == 'xgb':
             est.setParams(n_estimators=3)
-        base = configure_outputs(est.fit(tiny), algorithm, 0)
+        base = est.fit(tiny)
         sliced = VectorSlicer(inputCol='raw_0', outputCol='cal_features_0', indices=[1])
         cal = platt_estimator(0).fit(sliced.transform(base.transform(tiny)))
         assert cal.coefficients[0] >= 0

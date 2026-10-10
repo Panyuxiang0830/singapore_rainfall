@@ -14,9 +14,9 @@ import re
 from build_task2_curve_report import make_section
 
 ROOT = Path(__file__).resolve().parents[1]
-ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
+ALGORITHMS = ['logistic', 'svm', 'xgb']
 POLICIES = ['natural', 'balanced', 'smote']
-NAMES = {'logistic': 'Logistic', 'svm': 'SVM', 'gbt': 'GBT', 'xgb': 'XGBoost'}
+NAMES = {'logistic': 'Logistic', 'svm': 'SVM', 'xgb': 'XGBoost'}
 POLICY_CN = {'natural': '自然分布', 'balanced': '类别加权', 'smote': 'SMOTE'}
 POLICY_EN = {'natural': 'Natural', 'balanced': 'Balanced', 'smote': 'SMOTE'}
 QS = [0, 5, 25]
@@ -56,7 +56,7 @@ def bar_panels(w, values, legends=None, references=None):
     w.line(r'\begin{center}\begin{tikzpicture}')
     for i, q in enumerate(QS):
         extra = ',ybar,bar width=7pt,legend style={at={(0.5,-0.18)},anchor=north,legend columns=3}' if legends else ''
-        w.line(r'\begin{axis}[reportaxis,'+f'at={{({i*8.3:.1f}cm,0)}},anchor=south west,width=7.4cm,height=8cm,title={{$R_{{30}}>{q}$ mm}},'+r'ylabel={PR-AUC},xtick={0,1,2,3},xticklabels={LR,SVM,GBT,XGB},ymin=0'+extra+']')
+        w.line(r'\begin{axis}[reportaxis,'+f'at={{({i*8.3:.1f}cm,0)}},anchor=south west,width=7.4cm,height=8cm,title={{$R_{{30}}>{q}$ mm}},'+r'ylabel={PR-AUC},xtick={0,1,2},xticklabels={LR,SVM,XGB},ymin=0'+extra+']')
         series = values[str(q)]
         colours = ['teal', 'orange!85!black', 'blue!65!black']
         for j, ys in enumerate(series):
@@ -64,7 +64,7 @@ def bar_panels(w, values, legends=None, references=None):
             w.line(r'\addplot[ybar,bar width='+('7pt' if legends else '20pt')+',fill='+colours[j]+r',draw=none] coordinates {'+coord+'};')
         if references:
             v = references[str(q)]
-            w.line(r'\addplot[orange!85!black,dashed,thick] coordinates {'+f'(-0.5,{v:.9g}) (3.5,{v:.9g})'+'};')
+            w.line(r'\addplot[orange!85!black,dashed,thick] coordinates {'+f'(-0.5,{v:.9g}) (2.5,{v:.9g})'+'};')
         if legends:
             w.line(r'\legend{自然分布,类别加权,SMOTE}', r'\legend{Natural,Balanced,SMOTE}')
         w.line(r'\end{axis}')
@@ -90,6 +90,7 @@ def methods(w, prepared, baseline):
     w.paragraph('训练与验证', '所有模型及预处理均使用 2017--2022 年全部 34,542,285 条有效训练记录。2023 年上半年拟合概率校准函数，下半年选择模型及概率判别阈值；2024 年用于测试。标签窗口不得跨上述时间边界。校准、选择和测试保留自然类别分布。',
                 'Training and validation', 'All classifiers and preprocessing use all 34,542,285 eligible 2017--2022 training records. Fit calibration on 2023 H1, select models and decision cutoffs on H2, and test on 2024. Label windows cannot cross these boundaries. Calibration, selection and test preserve natural class proportions.')
     w.section('5. 从 Task 1 到特征工程', '5. From Task 1 to feature engineering')
+    w.line(r'\begingroup\small')
     w.table('p{5.2cm}p{9.0cm}p{9.0cm}', ['Task 1 依据', '构造方式', '实际输入'], ['Task 1 finding', 'Construction', 'Inputs'], [
         (['下午高峰随月份变化', '小时、月份周期编码与交互', '8 个日历特征；不加入年份 ID'], ['Afternoon peak varies by month', 'Cyclic hour/month and interactions', '8 calendar features; no year ID']),
         (['站点差异与空间相关', '站点 ID、经纬度、三个最近邻站', '邻站雨量均值、最大值、有雨比例'], ['Station differences and spatial correlation', 'Station ID, coordinates, three closest neighbours', 'Neighbour rain means, maxima and wet fractions']),
@@ -120,12 +121,12 @@ def methods(w, prepared, baseline):
             gains.append(near-own)
         changes_cn = '、'.join(f'{v:+.5f}' for v in gains)
         changes_en = ', '.join(f'{v:+.5f}' for v in gains)
-        w.paragraph('邻站信息的增量', '在已有本站历史的基础上，加入邻站信息后，三个目标的测试 PR-AUC 变化依次为 '+changes_cn+'。该比较评价空间信息对短时预测的增量，与 Task 1 的日雨量相关性分析相互补充。',
-                    'Incremental neighbour information', 'Adding neighbours to own-station history changes test PR-AUC by '+changes_en+' across the three targets. This evaluates spatial information for short-horizon prediction alongside Task 1 daily-rain correlations.')
+        w.paragraph('邻站信息的增量', '相对于本站历史模型，加入邻站历史后三个目标的测试 PR-AUC 依次变化 '+changes_cn+'。结果与 Task 1 的空间相关性分析一致。',
+                    'Neighbour contribution', 'Adding neighbour history changes test PR-AUC by '+changes_en+' relative to own-history models, consistent with Task 1 spatial correlations.')
+    w.line(r'\endgroup')
     w.section('6. 模型、不平衡处理与概率校准', '6. Models, imbalance and calibration')
     rows=[(['L2 Logistic（MLlib）', r'$\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$'], ['L2 logistic (MLlib)', r'$\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$']),
           (['Linear SVM（MLlib）', r'$\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$'], ['Linear SVM (MLlib)', r'$\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$']),
-          (['GBT（MLlib）', '40 轮，深度 4，步长 0.1，128 bins，叶节点最少 20 行'], ['GBT (MLlib)', '40 rounds, depth 4, step 0.1, 128 bins, minimum 20 rows/node']),
           (['XGBoost（Spark 接口）', r'80 棵树，深度 4，学习率 0.1，64 bins，子节点权重 20；$L_2=1$'], ['XGBoost (Spark interface)', r'80 trees, depth 4, learning rate 0.1, 64 bins, child weight 20; $L_2=1$'])]
     w.table('p{6cm}p{17cm}', ['模型', '参数'], ['Model', 'Parameters'], rows)
     w.paragraph('训练策略', r'比较自然分布、类别加权和受约束 SMOTE 三种策略。类别权重为 $w_+=N/(2P)$、$w_-=N/[2(N-P)]$。SMOTE 目标正例占比为 20\%，正例总数最多为原始正例的 10 倍。每种策略均保留全部真实训练记录；合成观测仅添加到训练集。',
@@ -158,7 +159,7 @@ def results(w, summary, benchmark):
         chosen.append((q,a,p))
     cn='；'.join(f'{q} mm：{POLICY_CN[p]} {NAMES[a]}' for q,a,p in chosen)
     en='; '.join(f'{q} mm: {POLICY_EN[p]} {NAMES[a]}' for q,a,p in chosen)
-    w.paragraph('选定模型', '验证集选出的最终模型为 '+cn+'。各算法在三个目标上的最优策略，共 12 个模型，均在完整测试集上评价。', 'Selected models', 'Validation selects '+en+'. Evaluate all 12 algorithm/threshold policy winners on the full test set.')
+    w.paragraph('选定模型', '验证集选出的最终模型为 '+cn+'。各算法在三个目标上的最优策略，共 9 个模型，均在完整测试集上评价。', 'Selected models', 'Validation selects '+en+'. Evaluate all 9 algorithm/threshold policy winners on the full test set.')
     w.section('图 7：训练策略的验证集比较', 'Figure 7: training policies on validation')
     for q in QS:
         values[str(q)]=[[summary['candidates'][a][p]['models'][str(q)]['validation']['pr_auc'] for a in ALGORITHMS] for p in POLICIES]
@@ -166,7 +167,7 @@ def results(w, summary, benchmark):
     improved = {}
     for policy in ['balanced', 'smote']:
         improved[policy] = sum(summary['candidates'][a][policy]['models'][str(q)]['validation']['pr_auc'] > summary['candidates'][a]['natural']['models'][str(q)]['validation']['pr_auc'] for a in ALGORITHMS for q in QS)
-    w.paragraph('验证比较', f"相对于自然分布训练，类别加权在 12 个算法与目标组合中的 {improved['balanced']} 个组合提高 PR-AUC，SMOTE 在 {improved['smote']} 个组合提高 PR-AUC。因此，不平衡处理的收益需要根据算法与预测目标分别评价。所有比较采用相同完整训练期与相同验证记录。", 'Validation comparison', f"Relative to natural-distribution training, weighting improves PR-AUC in {improved['balanced']} of 12 algorithm/target combinations and SMOTE in {improved['smote']}. Evaluate imbalance treatment by algorithm and target. Every comparison uses the same complete training period and identical validation observations.")
+    w.paragraph('验证比较', f"相对于自然分布训练，类别加权在 9 个算法与目标组合中的 {improved['balanced']} 个组合提高 PR-AUC，SMOTE 在 {improved['smote']} 个组合提高 PR-AUC。因此，不平衡处理的收益需要根据算法与预测目标分别评价。所有比较采用相同完整训练期与相同验证记录。", 'Validation comparison', f"Relative to natural-distribution training, weighting improves PR-AUC in {improved['balanced']} of 9 algorithm/target combinations and SMOTE in {improved['smote']}. Evaluate imbalance treatment by algorithm and target. Every comparison uses the same complete training period and identical validation observations.")
     w.section('8. 2024 年测试结果', '8. Test results in 2024')
     rows=[]
     for q in QS:
@@ -251,9 +252,9 @@ def main():
     runtime=r'\textbf{Spark 配置与分工。}Task 1 与初始特征组比较采用单机双线程模式 \texttt{local[2]}。完整特征的模型比较与评价采用 \texttt{local[20]}，shuffle partitions 为 80，default parallelism 为 20。XGBoost 使用两个工作进程，每个任务配置 10 个 CPU。不使用 GPU，以低优先级串行执行各项实验。Spark DataFrame/SQL 与窗口函数用于全量清洗、时间聚合、标签和特征构造；模型训练与评价使用 Spark ML 管线。'
     text=text.replace(old_runtime,runtime)
     w.pairs[runtime]=r'\textbf{Spark configuration and responsibilities.} Task 1 and the initial feature-group comparisons use single-machine \texttt{local[2]}. Full-feature model comparison and evaluation use \texttt{local[20]}, 80 shuffle partitions and default parallelism 20. XGBoost uses two workers with ten CPUs per task. Experiments run sequentially at low priority without a GPU. Spark DataFrame/SQL and windows process full-data cleaning, aggregation, labels and features; Spark ML pipelines train and evaluate models.'
-    expanded_runtime=runtime+r'一般阶段 Java 堆为 6 GiB，进程总内存停止上限为 12 GiB；GBT 训练的 Java 堆为 32 GiB，总内存上限为 48 GiB；XGBoost 训练和评价的总内存上限为 24 GiB。'
+    expanded_runtime=runtime+r'一般阶段 Java 堆为 6 GiB，进程总内存停止上限为 12 GiB；XGBoost 训练和评价的总内存上限为 24 GiB。'
     text=text.replace(runtime,expanded_runtime)
-    w.pairs[expanded_runtime]=w.pairs.pop(runtime)+r' Ordinary phases use a 6 GiB Java heap and a 12 GiB process-tree stop limit. GBT fitting uses a 32 GiB Java heap and a 48 GiB process-tree limit; XGBoost fitting and evaluation also have a 24 GiB process-tree limit.'
+    w.pairs[expanded_runtime]=w.pairs.pop(runtime)+r' Ordinary phases use a 6 GiB Java heap and a 12 GiB process-tree stop limit. XGBoost fitting and evaluation have a 24 GiB process-tree limit.'
     path=ROOT/'scripts/report_task2_content.py'
     spec=importlib.util.spec_from_file_location('reviewed',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     old_environment=next(line for line in prefix.splitlines() if line.startswith(r'\textbf{计算环境。}'))
