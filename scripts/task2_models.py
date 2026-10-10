@@ -183,8 +183,12 @@ def fit_group(spark, algorithm, policy):
     front, assembled = front_model(kind)
     # Reading compressed Parquet can merge many files into a handful of tasks.
     # Keep full-data instance blocks bounded independently of compressed size.
-    train = spark.read.parquet(str(vector_path('train', kind))).repartition(TRAIN_PARTITIONS).persist(StorageLevel.DISK_ONLY)
-    dimension = train.first()['features'].size
+    stored_vectors = spark.read.parquet(str(vector_path('train', kind)))
+    dimension = stored_vectors.first()['features'].size
+    # The complete vectors already have a compressed Parquet cache. Let MLlib
+    # cache its own instance blocks instead of also duplicating all vectors as
+    # a much larger SQL row cache. This changes storage, never training rows.
+    train = stored_vectors.repartition(TRAIN_PARTITIONS)
     log('MODEL_GROUP_START', algorithm=algorithm, policy=policy, rows=prepared['train_rows'], dimension=dimension)
     bases, results = {}, {}
     try:
