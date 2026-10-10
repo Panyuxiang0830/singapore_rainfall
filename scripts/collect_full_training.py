@@ -5,6 +5,7 @@ By default the complete experiment is required; --checkpoint permits copying
 only finished pipelines while the remaining phases continue on the server.
 """
 import argparse
+import base64
 import hashlib
 import inspect
 import json
@@ -30,7 +31,7 @@ def main():
     parser.add_argument('--remote-root', default='/home/research_pyx/singapore')
     parser.add_argument('--checkpoint', action='store_true')
     args = parser.parse_args()
-    code = '''import hashlib,json
+    code = '''import base64,hashlib,json
 from pathlib import Path
 root=Path(REMOTE_ROOT)
 base=root/'work/task2/logistic_full'
@@ -73,12 +74,23 @@ for folder in [base,bench]:
 for name in ['results','test','train_final','curves']:
  files.update((bench/name).glob('*.json'))
 files.update((bench/'smote').glob('gt_*mm/generation.json'))
-manifest={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
-print(json.dumps({'status':status,'pipelines':len(models)-1,'files':manifest}))
+manifest={}
+json_snapshots={}
+for p in sorted(files):
+ relative=str(p.relative_to(root))
+ payload=p.read_bytes()
+ manifest[relative]=hashlib.sha256(payload).hexdigest()
+ # Training adds calibration and validation to these JSON files atomically.
+ # Freeze the same bytes that were hashed instead of archiving a later version.
+ if p.suffix=='.json':json_snapshots[relative]=base64.b64encode(payload).decode()
+print(json.dumps({'status':status,'pipelines':len(models)-1,'files':manifest,'json_snapshots':json_snapshots}))
 '''.replace('REMOTE_ROOT', repr(args.remote_root)).replace('CHECKPOINT', repr(args.checkpoint))
     result = ssh(args.host, 'python3 -c '+shlex.quote(code), capture_output=True, text=True, timeout=45)
     manifest = json.loads(result.stdout)
     paths = list(manifest['files'])
+    json_snapshots = manifest['json_snapshots']
+    assert set(json_snapshots).issubset(paths)
+    native_paths = [p for p in paths if p not in json_snapshots]
     allowed = ['models/logistic_baseline_full/', 'models/model_comparison_full/',
                'work/task2/logistic_full/', 'work/task2/model_comparison_full/']
     assert all(any(p.startswith(a) for a in allowed) for p in paths)
@@ -89,13 +101,17 @@ print(json.dumps({'status':status,'pipelines':len(models)-1,'files':manifest}))
         archive = Path(temporary)/'transfer.tar.gz'
         command = 'tar -czf - -C '+shlex.quote(args.remote_root)+' --verbatim-files-from -T -'
         with archive.open('wb') as output:
-            ssh(args.host, command, input=('\n'.join(paths)+'\n').encode(), stdout=output, timeout=180)
+            ssh(args.host, command, input=('\n'.join(native_paths)+'\n').encode(), stdout=output, timeout=180)
         with tarfile.open(archive, 'r:gz') as source:
             for member in source.getmembers():
                 assert member.isfile() and member.name in manifest['files']
                 assert not Path(member.name).is_absolute() and '..' not in Path(member.name).parts
             safe_filter = {'filter': 'data'} if 'filter' in inspect.signature(source.extractall).parameters else {}
             source.extractall(Path(temporary)/'files', **safe_filter)
+        for relative, payload in json_snapshots.items():
+            incoming = Path(temporary)/'files'/relative
+            incoming.parent.mkdir(parents=True, exist_ok=True)
+            incoming.write_bytes(base64.b64decode(payload, validate=True))
         import shutil
         for relative, digest in manifest['files'].items():
             incoming = Path(temporary)/'files'/relative
