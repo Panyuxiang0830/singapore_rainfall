@@ -142,7 +142,16 @@ def main():
     initial_pid = BASE/'prepare.pid'
     if initial_pid.exists():
         pid = int(initial_pid.read_text())
-        while psutil.pid_exists(pid) and psutil.Process(pid).status() != psutil.STATUS_ZOMBIE:
+        while True:
+            try:
+                parent = psutil.Process(pid)
+                command = parent.cmdline()
+                preparing = (any(x.endswith('run_task2_logistic.py') for x in command) and '--prepare-only' in command
+                             or any(x.endswith('task2_logistic.py') for x in command) and '--prepare' in command)
+                if parent.status() == psutil.STATUS_ZOMBIE or Path(parent.cwd()).resolve() != ROOT or not preparing:
+                    break
+            except psutil.NoSuchProcess:
+                break
             print('WAITING_FOR_INITIAL_FULL_PREPARATION', pid, flush=True)
             time.sleep(10)
     run('full_preprocessing', 'task2_logistic.py', '--prepare')
