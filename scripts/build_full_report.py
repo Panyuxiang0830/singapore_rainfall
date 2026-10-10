@@ -268,6 +268,7 @@ def main():
             prefix=re.sub(r'^\\textbf\{预测结果。\}.*$',lambda _:abstract_cn,prefix,flags=re.M)
         else:
             prefix=prefix.replace(r'\begin{center}\begin{tabular}{rrrrr}',abstract_cn+'\n\n'+r'\begin{center}\begin{tabular}{rrrrr}',1)
+        prefix=re.sub(r'\n+(?=\\textbf\{预测结果。\})', '\n\n', prefix)
         w.pairs[abstract_cn]=abstract_en
     text=prefix+'\n'.join(w.lines)+'\n'+suffix
     old_runtime=next(line for line in prefix.splitlines() if line.startswith(r'\textbf{Spark 配置与分工。}'))

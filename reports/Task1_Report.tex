@@ -29,6 +29,7 @@
 \textbf{Data and methods.} The eight NEA / data.gov.sg annual datasets contain 48,538,713 source records and 48,538,627 unique valid observations from 91 station IDs. Spark performs full-data cleaning and aggregation. Annual comparisons use 21 stable stations to reduce changes caused by the monitoring network.
 
 \textbf{Main findings.} Of all valid five-minute observations, 97.08\% are dry. Eligible diurnal samples show the highest rain frequency at 16:00--17:00 Singapore time. Available-year monthly averages have the highest frequency in November and the lowest in July, with varying eligible years and stations. In the fixed panel, duration-normalized rainfall is lowest in 2019 and highest in 2021. Nearby stations generally have more strongly correlated daily rainfall; eight years alone do not establish long-term climate change.
+
 \textbf{Prediction findings.} Models use all 34,542,285 eligible 2017--2022 records for training, 2023 for probability calibration and selection, and 2024 for testing. XGBoost is selected for all three thresholds, with test PR-AUCs 0.60809, 0.21839, 0.02089. Weighting and SMOTE gains vary by algorithm and target; substantial room remains to improve 25 mm heavy-rain prediction.
 
 \begin{center}\begin{tabular}{rrrrr}
