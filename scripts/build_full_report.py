@@ -102,6 +102,9 @@ def methods(w, prepared, baseline):
     w.paragraph('输入处理', '缺失值填补、缺失标志和站点类别词表仅基于完整训练期拟合。线性模型对站点进行 one-hot 编码，树模型使用类别索引；常量特征排除。Logistic 与 SVM 使用特征标准化。通过九个 Logistic 模型比较日历与站点、加入本站历史、再加入邻站历史三组特征。',
                 'Input processing', 'Fit imputation, missingness indicators and station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.')
     if baseline:
+        config = prepared['config']
+        capped = sum(m['iteration_cap_reached'] for g in baseline['results'].values() for m in g['models'].values())
+        w.paragraph('特征组比较设置', f"九个特征组比较模型使用 L2 正则参数 {config['reg_param']}，最多迭代 {config['max_iter']} 次，收敛容差为 $10^{{-6}}$。其中 {capped} 个模型达到设定的迭代上限。正式模型比较中的 Logistic 与 SVM 最多迭代 100 次。", 'Feature comparison settings', f"The nine ablation classifiers use L2 parameter {config['reg_param']}, at most {config['max_iter']} iterations and tolerance $10^{{-6}}$. {capped} reach this iteration cap. Logistic and SVM in the main algorithm comparison allow 100 iterations.")
         linear_dimension = baseline['results']['neighbors']['models']['0']['vector_dimension']
         tree_dimension = len(prepared['active_numeric'])+len(prepared['missing_indicators'])+1
         w.paragraph('特征维度', f"完整输入包含 {len(prepared['active_numeric'])} 个数值特征和 {len(prepared['missing_indicators'])} 个缺失标志，加上站点编码后，线性模型为 {linear_dimension} 维，树模型为 {tree_dimension} 维。", 'Feature dimensions', f"The complete input has {len(prepared['active_numeric'])} numeric features and {len(prepared['missing_indicators'])} missingness indicators. With station encoding, linear models have {linear_dimension} dimensions and tree models {tree_dimension}.")
