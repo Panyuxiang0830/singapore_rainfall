@@ -15,10 +15,12 @@
   (the measured 20-CPU fixture peak exceeded the original 4 GiB guard).
   Require at least eight GiB free-memory headroom above the phase bound. Avoid duplicate jobs;
   inspect this project's existing processes before launching a new run.
-- Full-data XGBoost fitting may use a 24 GiB process-tree stop bound because
+- Full-data XGBoost fitting uses a 40 GiB process-tree stop bound because
   its Spark adapter retains dense batches. Keep 20 CPUs and low priority;
   use two Spark XGBoost workers with ten CPUs per task rather than 20 workers;
-  require at least 32 GiB free memory. XGBoost evaluation has the same bound;
+  require at least 48 GiB free memory. Disable Python-worker reuse to release
+  native/Arrow allocations between model fits. The previous 24 GiB guard stopped
+  the second full fit at a measured 28.18 GiB. XGBoost evaluation has the same bound;
   other phases use the 12 GiB bound.
 - User removed GBT on 10 October. Active comparison algorithms are Logistic,
   Linear SVM and XGBoost, with three policies and three rainfall thresholds

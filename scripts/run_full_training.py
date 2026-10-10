@@ -105,7 +105,7 @@ def phase(name, command, env, memory_gib):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--memory-gib', type=float, default=12.)
-    parser.add_argument('--xgb-memory-gib', type=float, default=24.)
+    parser.add_argument('--xgb-memory-gib', type=float, default=40.)
     parser.add_argument('--cpu-threads', type=int, default=20)
     parser.add_argument('--driver-heap-gib', type=int, default=6)
     parser.add_argument('--prepare-benchmark-only', action='store_true')
@@ -124,6 +124,7 @@ def main():
          'default_parallelism': args.cpu_threads,
          'xgb_workers': min(2, args.cpu_threads),
          'xgb_threads_per_worker': max(1, args.cpu_threads // min(2, args.cpu_threads)),
+         'xgb_python_worker_reuse': False,
          'spark_phase_rss_limit_gib': args.memory_gib,
          'xgb_phase_rss_limit_gib': args.xgb_memory_gib,
          'free_disk_reserve_gib': 5, 'gpu': False, 'nice': 19, 'ionice_class': 3})
@@ -158,6 +159,9 @@ def main():
         if xgb:
             phase_env['RAINFALL_TASK_CPUS'] = str(max(1, args.cpu_threads // min(2, args.cpu_threads)))
             phase_env['RAINFALL_RSS_LIMIT_GIB'] = str(args.xgb_memory_gib)
+            # Native/Arrow buffers from an earlier full fit may remain in a
+            # reused Python process. Fresh workers release them between jobs.
+            phase_env['RAINFALL_PYTHON_WORKER_REUSE'] = 'false'
         phase(name, [sys.executable, '-u', 'scripts/'+script, *arguments], phase_env,
               required_memory)
     # A separately launched initial preparation may still be finishing.

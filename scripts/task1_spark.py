@@ -45,6 +45,7 @@ def start_spark(app_name='SingaporeRainfallTask1'):
     session = (SparkSession.builder.appName(app_name)
                .master(f'local[{cpu_threads}]')
                .config('spark.task.cpus', str(task_cpus))
+               .config('spark.python.worker.reuse', os.environ.get('RAINFALL_PYTHON_WORKER_REUSE', 'true'))
                .config('spark.driver.memory', f'{driver_heap_gib}g')
                .config('spark.driver.maxResultSize', '256m')
                .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer')
@@ -77,6 +78,7 @@ def start_spark(app_name='SingaporeRainfallTask1'):
         'spark_master': session.sparkContext.master,
         'project_cpu_threads': cpu_threads,
         'task_cpus': task_cpus,
+        'python_worker_reuse': session.sparkContext.getConf().get('spark.python.worker.reuse'),
         'jvm_processors': session.sparkContext._jvm.java.lang.Runtime.getRuntime().availableProcessors(),
         'driver_heap_gib': driver_heap_gib,
         'rss_stop_gib': float(os.environ.get('RAINFALL_RSS_LIMIT_GIB', '4')),

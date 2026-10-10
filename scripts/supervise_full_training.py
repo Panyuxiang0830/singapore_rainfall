@@ -50,10 +50,10 @@ def available_gib():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runner-pid', type=int, required=True)
-    parser.add_argument('--xgb-memory-gib', type=float, default=24.)
+    parser.add_argument('--xgb-memory-gib', type=float, default=40.)
     parser.add_argument('--cpu-threads', type=int, default=20)
     args = parser.parse_args()
-    assert 4 < args.xgb_memory_gib <= 24
+    assert 4 < args.xgb_memory_gib <= 40
     WORK.mkdir(parents=True, exist_ok=True)
     lock = (WORK/'supervision.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
