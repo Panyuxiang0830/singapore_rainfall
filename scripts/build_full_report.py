@@ -102,6 +102,9 @@ def methods(w, prepared, baseline):
     w.paragraph('输入处理', '缺失值填补、缺失标志和站点类别词表仅基于完整训练期拟合。线性模型对站点进行 one-hot 编码，树模型使用类别索引；常量特征排除。Logistic 与 SVM 使用特征标准化。通过九个 Logistic 模型比较日历与站点、加入本站历史、再加入邻站历史三组特征。',
                 'Input processing', 'Fit imputation, missingness indicators and station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.')
     if baseline:
+        linear_dimension = baseline['results']['neighbors']['models']['0']['vector_dimension']
+        tree_dimension = len(prepared['active_numeric'])+len(prepared['missing_indicators'])+1
+        w.paragraph('特征维度', f"完整输入包含 {len(prepared['active_numeric'])} 个数值特征和 {len(prepared['missing_indicators'])} 个缺失标志，加上站点编码后，线性模型为 {linear_dimension} 维，树模型为 {tree_dimension} 维。", 'Feature dimensions', f"The complete input has {len(prepared['active_numeric'])} numeric features and {len(prepared['missing_indicators'])} missingness indicators. With station encoding, linear models have {linear_dimension} dimensions and tree models {tree_dimension}.")
         rows=[]
         for g, cn, en in [('calendar_station', '日历与站点', 'Calendar/station'), ('own_history', '加本站历史', 'Add own history'), ('neighbors', '再加邻站', 'Add neighbours')]:
             vals=[f(baseline['results'][g]['models'][str(q)]['test']['pr_auc']) for q in QS]
