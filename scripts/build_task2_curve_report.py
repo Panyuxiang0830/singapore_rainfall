@@ -17,22 +17,17 @@ def coordinates(points):
     return ' '.join(f'({x:.9g},{y:.9g})' for x, y in points)
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--curves-dir', type=Path, default=ROOT/'work/task2/model_comparison/curves')
-    args = parser.parse_args()
-    values = [json.loads((args.curves_dir/f'final_gt_{q}mm.json').read_text()) for q in [0, 5, 25]]
-    expected = [(0, 'xgb', 'natural'), (5, 'xgb', 'balanced'), (25, 'logistic', 'smote')]
-    for value, (q, algorithm, policy) in zip(values, expected):
-        assert (value['threshold_mm'], value['algorithm'], value['policy']) == (q, algorithm, policy)
-        assert value['n'] == 6374476
+def make_section(values):
+    for q, value in zip([0, 5, 25], values):
+        assert value['threshold_mm'] == q and value['algorithm'] in ['xgb', 'logistic', 'svm', 'gbt']
+        assert value['n'] == 6374476 and value['training_rows'] == 34542285
         for kind in ['roc', 'pr']:
             assert abs(value[kind+'_plot_area']-value[kind+'_auc']) <= min(1e-4, value[kind+'_auc']*.002)
     body = [HEADER, r'\begin{center}\begin{tikzpicture}']
     for kind, y in [('roc', 6.4), ('pr', 0.)]:
         for i, value in enumerate(values):
             q = value['threshold_mm']
-            name = 'XGB' if value['algorithm'] == 'xgb' else 'LR'
+            name = {'xgb': 'XGB', 'logistic': 'LR', 'gbt': 'GBT', 'svm': 'SVM'}[value['algorithm']]
             label_x = '假正例率（FPR）' if kind == 'roc' else 'Recall'
             label_y = '真正例率（TPR）' if kind == 'roc' else 'Precision'
             legend_position = 'at={(0.97,0.05)},anchor=south east' if kind == 'roc' else 'at={(0.97,0.97)},anchor=north east'
@@ -50,28 +45,44 @@ def main():
             body.append(r'\addlegendentry{随机参考}')
             body.append(r'\end{axis}')
     body.append(r'\end{tikzpicture}\end{center}')
-    scope = r'\textbf{评价对象。}三列依次为自然分布 XGBoost、类别加权 XGBoost 和 SMOTE Logistic，均由 2023 年下半年验证集选定。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口；各模型仍对应前述约 5\% 的训练样本。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。25 mm 的 PR 面板将纵轴放大至 0--0.15，以展示低 Precision 区间。'
-    conclusion = r'\textbf{排序表现。}三个目标的 ROC-AUC 分别为 0.87986、0.87526 和 0.85651，PR-AUC 分别为 0.60797、0.21299 和 0.01805。随着雨量阈值提高，PR 曲线整体下降，说明在更稀少的降雨事件中同时取得较高 Precision 和 Recall 更困难。25 mm 模型虽具有较高 ROC-AUC，实际稀有事件识别能力仍有限。'
+    policies_cn = {'natural': '自然分布', 'balanced': '类别加权', 'smote': 'SMOTE'}
+    policies_en = {'natural': 'natural-distribution', 'balanced': 'class-weighted', 'smote': 'SMOTE'}
+    algorithms = {'logistic': 'Logistic', 'svm': 'SVM', 'gbt': 'GBT', 'xgb': 'XGBoost'}
+    models_cn = '、'.join(policies_cn[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
+    models_en = ', '.join(policies_en[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
+    scope = r'\textbf{评价对象。}三列依次为'+models_cn+r'，由 2023 年下半年验证集选定。所有模型使用 2017--2022 年全部 34,542,285 条有效训练记录。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。25 mm 的 PR 面板将纵轴放大至 0--0.15，以展示低 Precision 区间。'
+    roc = '、'.join(f"{v['roc_auc']:.5f}" for v in values)
+    pr = '、'.join(f"{v['pr_auc']:.5f}" for v in values)
+    conclusion = r'\textbf{排序表现。}三个目标的 ROC-AUC 分别为 '+roc+'，PR-AUC 分别为 '+pr+'。较高雨量阈值对应的事件更稀少，需结合 PR 曲线评价模型能否同时取得较高 Precision 和 Recall。'
+    reviewed = {
+        HEADER: r'\clearpage\section*{Figure 9: ROC and PR curves of the final selected models}',
+        CALIBRATION: r'\clearpage\section*{Figure 10: reliability curves and probability quality}',
+        scope: r'\textbf{Evaluation scope.} The columns show '+models_en+r', selected using 2023 H2 validation. All models fit the complete 34,542,285 eligible training records from 2017--2022. Curves and AUCs use all 6,374,476 eligible 2024 test windows. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies precision to 0--0.15.',
+        conclusion: r'\textbf{Ranking performance.} ROC-AUCs are '+roc.replace('、', ', ')+', and PR-AUCs are '+pr.replace('、', ', ')+'. Higher rainfall thresholds describe rarer events. PR curves assess whether models achieve high precision and recall together.'}
     body += ['', scope, '', conclusion, '']
+    return '\n'.join(body), reviewed
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--curves-dir', type=Path, default=ROOT/'work/task2/model_comparison_full/curves')
+    args = parser.parse_args()
+    values = [json.loads((args.curves_dir/f'final_gt_{q}mm.json').read_text()) for q in [0, 5, 25]]
+    section, reviewed = make_section(values)
     source = ROOT/'reports/Task1_Report_CN.tex'
     text = source.read_text()
     old_calibration = r'\clearpage\section*{图 9：校准曲线与概率质量}'
     if HEADER in text:
         begin = text.index(HEADER); end = text.index(CALIBRATION, begin)
-        text = text[:begin]+'\n'.join(body)+text[end:]
+        text = text[:begin]+section+text[end:]
     else:
         assert old_calibration in text
-        text = text.replace(old_calibration, '\n'.join(body)+CALIBRATION, 1)
+        text = text.replace(old_calibration, section+CALIBRATION, 1)
     translation_path = ROOT/'scripts/report_task2_content.py'
     spec = importlib.util.spec_from_file_location('reviewed_content', translation_path)
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
     pairs = dict(module.LINE_PAIRS)
-    pairs.update({
-        HEADER: r'\clearpage\section*{Figure 9: ROC and PR curves of the final selected models}',
-        CALIBRATION: r'\clearpage\section*{Figure 10: reliability curves and probability quality}',
-        scope: r'\textbf{Evaluation scope.} The columns show natural-distribution XGBoost, class-weighted XGBoost and SMOTE logistic, respectively, selected using 2023 H2 validation. Curves and AUCs use all 6,374,476 eligible 2024 test windows; models use the previously described training sample of about 5\%. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies the precision axis to 0--0.15.',
-        conclusion: r'\textbf{Ranking performance.} ROC-AUCs are 0.87986, 0.87526 and 0.85651; PR-AUCs are 0.60797, 0.21299 and 0.01805. PR curves decline as the rainfall threshold increases, indicating greater difficulty in achieving high precision and recall together for rarer events. Despite a relatively high ROC-AUC, detection of rare 25 mm events remains limited.',
-    })
+    pairs.update(reviewed)
     labels = dict(module.LABELS)
     labels.update({'假正例率（FPR）': 'False positive rate (FPR)',
                    '真正例率（TPR）': 'True positive rate (TPR)', '随机参考': 'Random'})

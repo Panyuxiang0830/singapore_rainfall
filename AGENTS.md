@@ -17,7 +17,7 @@
   Synchronize any resulting report content changes in both languages.
 - A gpushare VM running Spark local[2] is a single-machine deployment, not a
   multi-node cluster. Do not install global packages or alter other projects.
-- Task 1 and Task 2 modelling and the bilingual report are complete.
+- Task 1 is complete. Task 2 is being retrained using all eligible training rows.
   Push and verify final backups before removing the server project
   at full-project completion; report/backup work alone does not authorize early cleanup.
 
@@ -49,5 +49,9 @@
   Git/Desktop synchronization, compilation internals, submission status and
   conversational headings such as 怎样读图/默认路由. State findings directly.
 - Keep the requested deletions from the 9 October editorial review. Explain
-  the actual 5% training sample, cyclic time encoding, feature-group comparisons
+  full training data, cyclic time encoding, feature-group comparisons
   and Platt probability calibration clearly in both languages.
+
+- User requires all eligible 2017--2022 rows for every model fit and preprocessing fit.
+  Remove training subsampling options and obsolete experiment results from current deliverables.
+  Preserve 2023 calibration/selection and 2024 testing. Never resume incompatible old models.

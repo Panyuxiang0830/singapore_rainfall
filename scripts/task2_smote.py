@@ -1,4 +1,4 @@
-"""Bounded, same-station SMOTE for mixed rainfall summaries.
+"""Station-partitioned SMOTE using all training minority rows.
 
 Continuous rainfall summaries are interpolated with one lambda. Station,
 calendar, discrete flags/counts/fractions, ages, distances and the complete
@@ -8,7 +8,6 @@ an implementation claim for imbalanced-learn SMOTENC.
 """
 import argparse
 import json
-import math
 from pathlib import Path
 
 import numpy as np
@@ -29,12 +28,12 @@ CONTINUOUS = [
 ]
 CALENDAR = NUMERIC_FEATURES[:8]
 LOCKED = [c for c in NUMERIC_FEATURES if c not in CONTINUOUS + CALENDAR]
-WORK = ROOT/'work/task2/model_comparison'
-VERSION = 'same_station_profile_zero_pattern_smote_cap10_v2'
+WORK = ROOT/'work/task2/model_comparison_full'
+VERSION = 'full_training_station_partitioned_smote_v3'
 
 
 def neighbors_for(stations, values, scales):
-    """Only a bounded minority pool is processed outside Spark."""
+    """All donor rows in one station are processed outside Spark at a time."""
     n = len(values)
     continuous = [NUMERIC_FEATURES.index(c) for c in CONTINUOUS]
     locked = [NUMERIC_FEATURES.index(c) for c in LOCKED]
@@ -109,47 +108,75 @@ def generate(q):
         return
     prepared = json.loads((WORK/'preparation.json').read_text())
     n, positive = prepared['train_rows'], int(prepared['train_positives'][str(q)])
-    target_positive = min(10*positive, math.ceil((n-positive)*0.2/0.8))
+    target_positive = min(10*positive, (n-positive+3)//4)
     extra = max(0, target_positive-positive)
-    minority = ds.dataset(str(WORK/'minority'/f'gt_{q}mm'), format='parquet', exclude_invalid_files=True).to_table()
-    if len(minority) != positive or positive > 200000:
-        raise RuntimeError('Minority count mismatch or bounded pool limit exceeded')
-    stations = np.asarray(minority['station_id'].to_pylist(), dtype=object)
-    epochs = np.asarray(minority['slot_epoch'].to_numpy(), dtype=np.int64)
-    if (epochs >= 1672502400).any():  # 2023-01-01 00:00 Asia/Singapore
-        raise RuntimeError('Nontraining minority rows')
-    values = np.column_stack([minority[c].to_numpy(zero_copy_only=False) for c in NUMERIC_FEATURES]).astype(float)
+    # Every minority record is retained. Process station partitions sequentially
+    # so donor search does not collect the full national minority table.
+    from urllib.parse import unquote
+    import gc
+    root = WORK/'minority'/f'gt_{q}mm'
+    pools = []
+    for directory in sorted(root.glob('station_id=*')):
+        station = unquote(directory.name.split('=', 1)[1])
+        dataset = ds.dataset(str(directory), format='parquet', exclude_invalid_files=True)
+        count = dataset.count_rows()
+        if count:
+            quota, remainder = divmod(extra*count, positive)
+            pools.append({'station': station, 'path': directory, 'count': count,
+                          'extra': quota, 'remainder': remainder})
+    if sum(pool['count'] for pool in pools) != positive:
+        raise RuntimeError('Full minority count mismatch')
+    leftover = extra-sum(pool['extra'] for pool in pools)
+    for pool in sorted(pools, key=lambda x: (-x['remainder'], x['station']))[:leftover]:
+        pool['extra'] += 1
+    assert sum(pool['extra'] for pool in pools) == extra
     scales = np.asarray([prepared['distance_scales'].get(c, 1.0) or 1.0 for c in NUMERIC_FEATURES])
-    links, eligible, group_count = neighbors_for(stations, values, scales)
     schema = pa.schema([('station_id', pa.string()), *[(c, pa.float64()) for c in NUMERIC_FEATURES],
                         ('label', pa.float64()), ('source_slot_a', pa.int64()),
                         ('source_slot_b', pa.int64()), ('interpolation_lambda', pa.float64())])
     work.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(5208+q)
-    interpolated = changed = fallback = 0
+    interpolated = changed = fallback = eligible = group_count = 0
+    largest_pool = 0
     with pq.ParquetWriter(work/'synthetic.parquet', schema, compression='snappy') as writer:
-        for start in range(0, extra, 10000):
-            size = min(10000, extra-start)
-            base = rng.integers(0, positive, size=size)
-            choice = rng.integers(0, 5, size=size)
-            lam = rng.random(size)
-            generated, other = interpolate(values, links, base, choice, lam)
-            validate(generated)
-            interpolated += int((other != base).sum())
-            fallback += int((other == base).sum())
-            changed += int(np.any(np.abs(np.nan_to_num(generated-values[base], nan=0)) > 1e-10, axis=1).sum())
-            columns = {'station_id': stations[base], **{c: generated[:, j] for j, c in enumerate(NUMERIC_FEATURES)},
-                       'label': np.ones(size), 'source_slot_a': epochs[base], 'source_slot_b': epochs[other],
-                       'interpolation_lambda': lam}
-            arrays = [pa.array(columns[field.name], type=field.type, from_pandas=True) for field in schema]
-            writer.write_table(pa.Table.from_arrays(arrays, schema=schema))
+        for pool in pools:
+            if pool['count'] > 1000000:
+                raise RuntimeError('Station donor partition exceeds the memory guard; no donors were discarded')
+            minority = ds.dataset(str(pool['path']), format='parquet').to_table()
+            assert len(minority) == pool['count']
+            stations = np.repeat(pool['station'], pool['count'])
+            epochs = np.asarray(minority['slot_epoch'].to_numpy(), dtype=np.int64)
+            if (epochs >= 1672502400).any():
+                raise RuntimeError('Nontraining minority rows')
+            values = np.column_stack([minority[c].to_numpy(zero_copy_only=False) for c in NUMERIC_FEATURES]).astype(float)
+            links, pool_eligible, pool_groups = neighbors_for(stations, values, scales)
+            eligible += pool_eligible; group_count += pool_groups
+            largest_pool = max(largest_pool, pool['count'])
+            for start in range(0, pool['extra'], 10000):
+                size = min(10000, pool['extra']-start)
+                base = rng.integers(0, pool['count'], size=size)
+                choice = rng.integers(0, 5, size=size)
+                lam = rng.random(size)
+                generated, other = interpolate(values, links, base, choice, lam)
+                validate(generated)
+                interpolated += int((other != base).sum())
+                fallback += int((other == base).sum())
+                changed += int(np.any(np.abs(np.nan_to_num(generated-values[base], nan=0)) > 1e-10, axis=1).sum())
+                columns = {'station_id': stations[base], **{c: generated[:, j] for j, c in enumerate(NUMERIC_FEATURES)},
+                           'label': np.ones(size), 'source_slot_a': epochs[base], 'source_slot_b': epochs[other],
+                           'interpolation_lambda': lam}
+                arrays = [pa.array(columns[field.name], type=field.type, from_pandas=True) for field in schema]
+                writer.write_table(pa.Table.from_arrays(arrays, schema=schema))
+            print('SMOTE_STATION_COMPLETE', q, pool['station'], pool['count'], pool['extra'], flush=True)
+            del minority, stations, epochs, values, links
+            gc.collect()
     result = {'version': VERSION, 'threshold_mm': q, 'original_rows': n, 'original_positives': positive,
               'added_rows': extra, 'augmented_positives': target_positive,
               'augmented_positive_fraction': target_positive/(n+extra),
               'minority_rows_with_neighbor': eligible, 'profile_groups': group_count,
               'interpolated_rows': interpolated, 'numerically_changed_rows': changed,
               'isolated_profile_duplicate_rows': fallback, 'target_positive_fraction': 0.2,
-              'maximum_positive_multiplier': 10, 'neighbors_k': 5,
+              'maximum_positive_multiplier': 10, 'neighbors_k': 5, 'minority_donors_used': positive, 'station_partitions': len(pools), 'largest_station_pool': largest_pool,
               'continuous_interpolated_features': CONTINUOUS,
               'fixed_features': LOCKED+CALENDAR, 'training_only': True,
               'scope': 'Same station, identical missingness, rain zero pattern and locked feature profile; calendar copied from base'}
@@ -158,6 +185,7 @@ def generate(q):
 
 
 def check():
+    global WORK
     # Distinct station/profile must never be interpolated; an isolated profile copies itself.
     values = np.zeros((4, len(NUMERIC_FEATURES)))
     for i in range(4):
@@ -190,6 +218,29 @@ def check():
         raise AssertionError('Contradictory wet-count interpolation was accepted')
     links, eligible, _ = neighbors_for(['S1', 'S1'], states, np.ones(len(NUMERIC_FEATURES)))
     assert eligible == 0 and np.all(links[0] == 0) and np.all(links[1] == 1)
+    # Verify exhaustive station donors and exact synthetic quotas across partitions.
+    import tempfile
+    original_work = WORK
+    with tempfile.TemporaryDirectory(prefix='full_smote_fixture_') as folder:
+        WORK = Path(folder)
+        try:
+            save_json(WORK/'preparation.json', {'train_rows': 100, 'train_positives': {'0': 4},
+                                               'distance_scales': {c: 1. for c in NUMERIC_FEATURES}})
+            fixture_stations = ['S1', 'S1', 'S2', 'S1']
+            for station in ['S1', 'S2']:
+                ids = [i for i, value in enumerate(fixture_stations) if value == station]
+                dest = WORK/'minority/gt_0mm'/('station_id='+station)
+                dest.mkdir(parents=True)
+                columns = {'slot_epoch': pa.array([1483200000+i*300 for i in ids], type=pa.int64())}
+                columns.update({c: pa.array(values[ids, j], type=pa.float64()) for j, c in enumerate(NUMERIC_FEATURES)})
+                pq.write_table(pa.table(columns), dest/'part.parquet')
+            generate(0)
+            record = json.loads((WORK/'smote/gt_0mm/generation.json').read_text())
+            assert record['minority_donors_used'] == 4 and record['station_partitions'] == 2
+            assert record['added_rows'] == 20
+            assert pq.read_table(WORK/'smote/gt_0mm/synthetic.parquet').num_rows == 20
+        finally:
+            WORK = original_work
     print('CONSTRAINED_SMOTE_CHECKS_PASSED', flush=True)
 
 

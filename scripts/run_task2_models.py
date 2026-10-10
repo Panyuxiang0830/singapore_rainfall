@@ -9,7 +9,7 @@ import time
 
 from run_task1 import ROOT, run
 
-ALGORITHMS = ['svm', 'gbt', 'xgb', 'logistic']
+ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
 POLICIES = ['natural', 'balanced', 'smote']
 
 
@@ -24,7 +24,7 @@ def main():
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25])
     parser.add_argument('--predict-algorithm', choices=ALGORITHMS)
     args = parser.parse_args()
-    work = ROOT/'work/task2/model_comparison'
+    work = ROOT/'work/task2/model_comparison_full'
     work.mkdir(parents=True, exist_ok=True)
     lock = (work/'run.lock').open('w')
     try:
@@ -82,12 +82,14 @@ def main():
     run(base+['--phase', 'select', '--job', 'validation_selection'], env)
     for algorithm in args.algorithms:
         run(base+['--phase', 'test', '--algorithm', algorithm, '--job', f'{algorithm}_test'], env)
+    run(base+['--phase', 'train-diagnostics', '--job', 'full_train_diagnostics'], env)
     run(base+['--phase', 'artifacts', '--job', 'model_artifact_checks'], env)
     summary = {'status': 'COMPLETE', 'preparation': json.loads((work/'preparation.json').read_text()),
                'selection': json.loads((work/'selection.json').read_text()),
                'smote': {str(q): json.loads((work/'smote'/f'gt_{q}mm'/'generation.json').read_text()) for q in [0,5,25]},
                'candidates': {a: {p: json.loads((work/'results'/f'{a}_{p}.json').read_text()) for p in POLICIES} for a in ALGORITHMS},
                'test': {a: json.loads((work/'test'/f'{a}.json').read_text()) for a in ALGORITHMS},
+               'train_final': {str(q): json.loads((work/'train_final'/f'gt_{q}mm.json').read_text()) for q in [0,5,25]},
                'artifact_checks': json.loads((work/'artifact_checks.json').read_text()),
                'current_invocation_seconds': time.monotonic()-started}
     (work/'summary.json').write_text(json.dumps(summary, indent=2, default=str)+'\n')

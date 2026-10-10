@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25], required=True)
     parser.add_argument('--group', choices=['calendar_station', 'own_history', 'neighbors'])
     parser.add_argument('--features-root', type=Path, default=ROOT/'data/task2/features')
-    parser.add_argument('--model-root', type=Path, default=ROOT/'models/logistic_baseline')
+    parser.add_argument('--model-root', type=Path, default=ROOT/'models/logistic_baseline_full')
     args = parser.parse_args()
     moment = datetime.fromisoformat(args.time)
     if moment.tzinfo is None:

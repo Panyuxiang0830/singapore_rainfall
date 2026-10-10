@@ -1,6 +1,6 @@
 """Full-feature Spark classifier and imbalance benchmark with independent calibration.
 
-Fits: fixed common 5% train sample, 2017--2022. Calibration: 2023 Jan--Jun.
+Fits: all eligible training rows, 2017--2022. Calibration: 2023 Jan--Jun.
 Selection: 2023 Jul--Dec. Half-hour target windows cannot cross these seams.
 Only the validation-selected policy per algorithm/threshold sees full 2024 test.
 """
@@ -21,15 +21,15 @@ from pyspark.sql import functions as F
 
 from task1_spark import ROOT, save_json, start_spark
 from task2_features import NUMERIC_FEATURES, THRESHOLDS_MM
-from task2_logistic import read_years, metrics
+from task2_logistic import read_years, metrics, TRAIN_PARTITIONS
 
-WORK = ROOT/'work/task2/model_comparison'
-MODELS = ROOT/'models/model_comparison'
-VERSION = 'full_features_natural_balanced_constrained_smote_cal2023H1_select2023H2_v1'
+WORK = ROOT/'work/task2/model_comparison_full'
+MODELS = ROOT/'models/model_comparison_full'
+VERSION = 'full_training_cal2023H1_select2023H2_v3'
 ALGORITHMS = ['logistic', 'svm', 'gbt', 'xgb']
 POLICIES = ['natural', 'balanced', 'smote']
-BASE_WORK = ROOT/'work/task2/logistic'
-BASE_MODELS = ROOT/'models/logistic_baseline'
+BASE_WORK = ROOT/'work/task2/logistic_full'
+BASE_MODELS = ROOT/'models/logistic_baseline_full'
 
 
 def log(event, **details):
@@ -66,6 +66,8 @@ def cache_vectors(spark, raw, split):
             continue
         front, _ = front_model(kind)
         frame = front.transform(raw).select('station_id', 'slot_epoch', 'features', *LABELS)
+        if split == 'train':
+            frame = frame.repartition(TRAIN_PARTITIONS)
         frame.write.mode('overwrite').parquet(str(target))
         log('VECTORS_COMPLETE', split=split, representation=kind)
 
@@ -79,7 +81,9 @@ def prepare(spark):
         log('BENCHMARK_PREPARATION_RESUMED')
         return
     prior = json.loads((BASE_WORK/'preparation.json').read_text())
-    train = spark.read.parquet(str(BASE_WORK/'training_sample'))
+    train = read_years(spark, range(2017, 2023))
+    if prior['config']['training_policy'] != 'all_eligible_2017_2022' or prior['train_rows'] != 34542285:
+        raise RuntimeError('Full training-only preprocessing is required')
     scale_row = train.agg(*[F.stddev_pop(c).alias(c) for c in NUMERIC_FEATURES]).first().asDict()
     scales = {c: float(v) if v and math.isfinite(v) and v > 1e-10 else 1.0 for c, v in scale_row.items()}
     validation = read_years(spark, [2023])
@@ -92,11 +96,11 @@ def prepare(spark):
     train_check = spark.read.parquet(str(vector_path('train', 'tree'))).agg(
         F.count('*').alias('n'), *[F.sum(f'label_gt_{q}mm').alias(str(q)) for q in THRESHOLDS_MM]).first().asDict()
     if train_check['n'] != prior['train_rows'] or any(train_check[str(q)] != prior['train_positives'][str(q)] for q in THRESHOLDS_MM):
-        raise RuntimeError('Frozen training sample changed')
+        raise RuntimeError('Full training row counts changed')
     for q in THRESHOLDS_MM:
         target = WORK/'minority'/f'gt_{q}mm'
         if not (target/'_SUCCESS').exists():
-            train.filter(F.col(f'label_gt_{q}mm') == 1).select('station_id', 'slot_epoch', *NUMERIC_FEATURES).write.mode('overwrite').parquet(str(target))
+            train.filter(F.col(f'label_gt_{q}mm') == 1).select('station_id', 'slot_epoch', *NUMERIC_FEATURES).write.mode('overwrite').partitionBy('station_id').parquet(str(target))
     counts = {}
     for name in ['calibration', 'selection']:
         frame = spark.read.parquet(str(vector_path(name, 'tree')))
@@ -104,12 +108,12 @@ def prepare(spark):
                            F.min('slot_epoch').alias('first_epoch'), F.max('slot_epoch').alias('last_epoch')).first().asDict()
         counts[name] = record
     result = {'version': VERSION, 'train_rows': prior['train_rows'], 'train_positives': prior['train_positives'],
-              'train_fraction': prior['config']['train_fraction'], 'distance_scales': scales, 'validation_blocks': counts,
+              'training_policy': 'all_eligible_2017_2022', 'distance_scales': scales, 'validation_blocks': counts,
               'active_numeric': prior['active_numeric'], 'missing_indicators': prior['missing_indicators'],
-              'preprocessing_policy': 'Frozen training-only imputer, missing indicators and station vocabulary from initial baseline',
+              'preprocessing_policy': 'Imputer, missing indicators and station vocabulary fitted on all eligible training rows',
               'calibration_policy': 'Natural-proportion 2023 Jan--Jun; monotone Platt logistic fit separately from base classifier',
               'selection_policy': 'Natural-proportion 2023 Jul--Dec PR-AUC, then Brier only for ties; never test selection',
-              'train_metric_sample_fraction': 0.2, 'test_policy': 'Full eligible 2024, selected policy for each algorithm/threshold',
+              'training_diagnostics': 'Full real training data for the final three validation-selected models', 'test_policy': 'Full eligible 2024, selected policy for each algorithm/threshold',
               'thresholds_mm': list(THRESHOLDS_MM), 'smote_target_fraction': 0.2, 'smote_positive_multiplier_cap': 10}
     save_json(marker, result)
     log('BENCHMARK_PREPARATION_COMPLETE', **{k: v for k, v in result.items() if k != 'distance_scales'})
@@ -177,7 +181,9 @@ def fit_group(spark, algorithm, policy):
     begun = time.monotonic()
     kind = representation(algorithm)
     front, assembled = front_model(kind)
-    train = spark.read.parquet(str(vector_path('train', kind))).persist(StorageLevel.DISK_ONLY)
+    # Reading compressed Parquet can merge many files into a handful of tasks.
+    # Keep full-data instance blocks bounded independently of compressed size.
+    train = spark.read.parquet(str(vector_path('train', kind))).repartition(TRAIN_PARTITIONS).persist(StorageLevel.DISK_ONLY)
     dimension = train.first()['features'].size
     log('MODEL_GROUP_START', algorithm=algorithm, policy=policy, rows=prepared['train_rows'], dimension=dimension)
     bases, results = {}, {}
@@ -251,8 +257,7 @@ def fit_group(spark, algorithm, policy):
         finally:
             cal.unpersist(blocking=True)
         # Selection first so every confusion matrix uses the same validation-selected cutoff.
-        train_eval = train.filter(F.pmod(F.xxhash64('station_id', 'slot_epoch', F.lit(5209)), F.lit(1000)) < 200)
-        for split, frame in [('validation', spark.read.parquet(str(vector_path('selection', kind)))), ('train', train_eval)]:
+        for split, frame in [('validation', spark.read.parquet(str(vector_path('selection', kind))))]:
             scored = frame
             for q in THRESHOLDS_MM:
                 scored = bases[q].transform(scored)
@@ -281,7 +286,7 @@ def fit_group(spark, algorithm, policy):
             finally:
                 scored.unpersist(blocking=True)
         result = {'version': VERSION, 'algorithm': algorithm, 'policy': policy, 'models': results,
-                  'group_seconds': time.monotonic()-begun, 'train_metrics': '20% fixed subset of original real training sample, no synthetic rows',
+                  'group_seconds': time.monotonic()-begun, 'train_metrics': 'Full real training diagnostics computed after validation selection for final three models',
                   'validation_metrics': 'Full natural-proportion 2023 Jul--Dec, no calibration-fitting rows',
                   'fixed_parameters': True, 'hyperparameter_optimization_claim': False}
         save_json(marker, result)
@@ -316,13 +321,13 @@ def select_models():
                 for q in THRESHOLDS_MM}
     manifest = {'version': VERSION, 'selected_policy_by_algorithm_and_threshold': selected,
                 'selected_algorithm_by_threshold': best_algorithm, 'model_metadata': model_metadata,
-                'training_sample': {'years': list(range(2017, 2023)), 'fraction': prepared['train_fraction'], 'hash_seed': 5208,
+                'training_data': {'years': list(range(2017, 2023)), 'policy': 'all_eligible_rows',
                                     'rows': prepared['train_rows'], 'threshold_positive_counts': prepared['train_positives']},
                 'smote_metadata': {str(q): {**json.loads((WORK/'smote'/f'gt_{q}mm'/'generation.json').read_text()),
                                              'rng_seed': 5208+q} for q in THRESHOLDS_MM},
                 'selection_metric': '2023 H2 PR-AUC; Brier as tie-breaker', 'test_not_used_for_selection': True,
                 'thresholds_mm': list(THRESHOLDS_MM), 'algorithms': ALGORITHMS,
-                'calibration': 'Monotone Platt fit on natural 2023 H1; all base models fit 2017--2022 sample',
+                'calibration': 'Monotone Platt fit on natural 2023 H1; all base models fit all eligible 2017--2022 rows',
                 'feature_definition': 'task2_features.NUMERIC_FEATURES and station_id',
                 'runtime': 'Spark 3.5.8; XGBoost Spark 3.2.0; local[2], 2 CPU affinity, 2 GiB driver, 4 GiB sampled tree RSS limit'}
     save_json(MODELS/'manifest.json', manifest)
@@ -382,6 +387,32 @@ def test_algorithm(spark, algorithm):
                            'test_probability_order_violations': violations})
     finally:
         scored.unpersist(blocking=True)
+
+
+def train_diagnostics(spark):
+    """Evaluate all real training rows for the three final selected models."""
+    manifest = json.loads((WORK/'selection.json').read_text())
+    prepared = json.loads((WORK/'preparation.json').read_text())
+    for q in THRESHOLDS_MM:
+        target = WORK/'train_final'/f'gt_{q}mm.json'
+        if target.exists():
+            continue
+        algorithm = manifest['selected_algorithm_by_threshold'][str(q)]
+        policy = manifest['selected_policy_by_algorithm_and_threshold'][algorithm][str(q)]
+        frame = spark.read.parquet(str(vector_path('train', representation(algorithm))))
+        pipeline = PipelineModel.load(str(MODELS/algorithm/policy/f'gt_{q}mm'))
+        for stage in pipeline.stages[-3:]:
+            frame = stage.transform(frame)
+        score = frame.select(vector_to_array(f'prob_{q}')[1].alias('p'), F.col(f'label_gt_{q}mm').alias('y'))
+        choice = json.loads((WORK/'results'/f'{algorithm}_{policy}_gt_{q}mm.json').read_text())
+        result = metrics(score, prepared['train_positives'][str(q)]/prepared['train_rows'],
+                         choice['validation']['probability_cutoff'])
+        assert result['n'] == prepared['train_rows'] == 34542285
+        result.update(algorithm=algorithm, policy=policy, threshold_mm=q,
+                      scope='All real eligible 2017--2022 training rows; no synthetic observations')
+        save_json(target, result)
+        log('FULL_TRAIN_DIAGNOSTIC_COMPLETE', threshold=q, algorithm=algorithm,
+            roc_auc=result['roc_auc'], pr_auc=result['pr_auc'], rows=result['n'])
 
 
 def check(spark):
@@ -449,7 +480,7 @@ def check_artifacts(spark):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--phase', choices=['prepare', 'smote-vectors', 'fit', 'select', 'test', 'check', 'artifacts'], required=True)
+    parser.add_argument('--phase', choices=['prepare', 'smote-vectors', 'fit', 'select', 'test', 'check', 'artifacts', 'train-diagnostics'], required=True)
     parser.add_argument('--algorithm', choices=ALGORITHMS)
     parser.add_argument('--policy', choices=POLICIES)
     parser.add_argument('--job', default='manual')
@@ -465,6 +496,7 @@ def main():
         elif args.phase == 'smote-vectors': prepare_smote_vectors(spark)
         elif args.phase == 'fit': fit_group(spark, args.algorithm, args.policy)
         elif args.phase == 'test': test_algorithm(spark, args.algorithm)
+        elif args.phase == 'train-diagnostics': train_diagnostics(spark)
         elif args.phase == 'check': check(spark)
         elif args.phase == 'artifacts': check_artifacts(spark)
     finally:

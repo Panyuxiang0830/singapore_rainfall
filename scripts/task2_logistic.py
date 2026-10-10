@@ -1,6 +1,6 @@
 """Spark MLlib L2 logistic feature ablations with chronological evaluation.
 
-Working samples, scores and metrics are not submission artifacts. Saved models
+Working features, scores and metrics are not submission artifacts. Saved models
 include fitted preprocessing. No validation/test data fits preprocessing or LR.
 """
 import argparse
@@ -18,17 +18,17 @@ from pyspark.sql import functions as F
 from task1_spark import ROOT, save_json, start_spark
 from task2_features import FEATURE_VERSION, NUMERIC_FEATURES, THRESHOLDS_MM
 
-VERSION = 'lr_l2_ablation_v1'
-WORK = ROOT / 'work/task2/logistic'
-MODELS = ROOT / 'models/logistic_baseline'
+VERSION = 'lr_l2_full_training_v2'
+WORK = ROOT / 'work/task2/logistic_full'
+MODELS = ROOT / 'models/logistic_baseline_full'
 GROUPS = {
     'calendar_station': NUMERIC_FEATURES[:11],
     'own_history': [c for c in NUMERIC_FEATURES if not c.startswith('neighbor_')],
     'neighbors': NUMERIC_FEATURES,
 }
 LABELS = [f'label_gt_{q}mm' for q in THRESHOLDS_MM]
-SAMPLE_MODULUS = 1000000
-HASH_SEED = 5208
+TRAIN_PARTITIONS = 256
+SCORE_PARTITIONS = 64
 
 
 def log(event, **details):
@@ -42,7 +42,7 @@ def read_years(spark, years):
 
 def settings(args):
     return {'version': VERSION, 'feature_version': FEATURE_VERSION,
-            'train_fraction': args.train_fraction, 'hash_seed': HASH_SEED,
+            'training_policy': 'all_eligible_2017_2022',
             'reg_param': args.reg_param, 'max_iter': args.max_iter,
             'tol': args.tol, 'thresholds_mm': list(THRESHOLDS_MM)}
 
@@ -57,17 +57,13 @@ def prepare(spark, args):
         log('PREPARATION_RESUMED', rows=stored['train_rows'])
         return stored
     started = time.monotonic()
-    raw = read_years(spark, range(2017, 2023))
-    # Stable inclusion independent of labels, file ordering and partitioning.
-    sample = raw.filter(F.pmod(F.xxhash64('station_id', 'slot_epoch', F.lit(HASH_SEED)),
-                              F.lit(SAMPLE_MODULUS)) < int(args.train_fraction * SAMPLE_MODULUS))
-    dest = WORK / 'training_sample'
-    sample.write.mode('overwrite').parquet(str(dest))
-    sample = spark.read.parquet(str(dest))
+    train = read_years(spark, range(2017, 2023))
     expressions = [F.count('*').alias('n')] + [F.sum(c).alias(c) for c in LABELS]
     for i, c in enumerate(NUMERIC_FEATURES):
         expressions += [F.count(c).alias(f'n{i}'), F.min(c).alias(f'lo{i}'), F.max(c).alias(f'hi{i}')]
-    stats = sample.agg(*expressions).first().asDict()
+    stats = train.agg(*expressions).first().asDict()
+    if stats['n'] != 34542285:
+        raise RuntimeError('Full training row count differs from the verified feature dataset')
     if any(not 0 < stats[c] < stats['n'] for c in LABELS):
         raise RuntimeError('Every classifier needs both classes in training')
     active = [c for i, c in enumerate(NUMERIC_FEATURES)
@@ -84,14 +80,14 @@ def prepare(spark, args):
         OneHotEncoder(inputCol='station_index', outputCol='station_vector',
                       handleInvalid='keep', dropLast=False),
     ]
-    preprocessing = Pipeline(stages=stages).fit(sample)
+    preprocessing = Pipeline(stages=stages).fit(train)
     preprocessing.write().overwrite().save(str(MODELS / 'preprocessing'))
     result = {'config': config, 'train_rows': stats['n'],
               'train_positives': {str(q): stats[f'label_gt_{q}mm'] for q in THRESHOLDS_MM},
               'active_numeric': active, 'missing_indicators': missing,
               'dropped_numeric': [c for c in NUMERIC_FEATURES if c not in active],
               'train_years': list(range(2017, 2023)), 'validation_year': 2023, 'test_year': 2024,
-              'sampling_policy': 'label-independent fixed station/time xxhash64 inclusion, same rows for all classifiers',
+              'training_policy': 'All eligible rows from 2017--2022, identical across classifiers',
               'class_weighting': 'none; natural training proportions retained',
               'preparation_seconds': time.monotonic() - started}
     save_json(marker, result)
@@ -104,7 +100,8 @@ def aucs(scores):
     # Spark 3.5.8's public Scala getMetrics shares the sorted cumulative counts
     # across both areas. The Python evaluator otherwise repeats that sort.
     evaluator._transfer_params_to_java()
-    native = evaluator._java_obj.getMetrics(scores._jdf)
+    # Exact-score grouping can otherwise inherit very few compressed-file tasks.
+    native = evaluator._java_obj.getMetrics(scores.repartition(SCORE_PARTITIONS)._jdf)
     try:
         return {'roc_auc': native.areaUnderROC(), 'pr_auc': native.areaUnderPR()}
     finally:
@@ -192,8 +189,10 @@ def fit_group(spark, args):
     assembled += [f'{c}__missing' for c in prepared['missing_indicators'] if c in allowed]
     assembler = VectorAssembler(inputCols=assembled+['station_vector'], outputCol='features', handleInvalid='error')
     front = PipelineModel(stages=preprocess.stages+[assembler])
-    train = front.transform(spark.read.parquet(str(WORK/'training_sample'))).select(
-        'features', *LABELS).persist(StorageLevel.DISK_ONLY)
+    # Bound each cached partition before MLlib builds its internal instance blocks.
+    # Parquet byte-size planning alone produces oversized partitions for vectors.
+    train = front.transform(read_years(spark, range(2017, 2023))).select(
+        'features', *LABELS).repartition(TRAIN_PARTITIONS).persist(StorageLevel.DISK_ONLY)
     log('GROUP_START', group=args.group, rows=train.count(), assembled_numeric=len(assembled))
     models, results = {}, {}
     try:
@@ -235,7 +234,7 @@ def fit_group(spark, args):
             models[q] = fitted; results[str(q)] = result
             log('FIT_COMPLETE', group=args.group, threshold=q, fit_seconds=elapsed,
                 iterations=result['iterations'], final_loss=loss[-1], cap=result['iteration_cap_reached'])
-        for split, frame in [('train', train), ('validation', read_years(spark, [2023])),
+        for split, frame in [('validation', read_years(spark, [2023])),
                              ('test', read_years(spark, [2024]))]:
             scored = frame if split == 'train' else front.transform(frame)
             for q, fitted in models.items():
@@ -277,13 +276,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--prepare', action='store_true')
     parser.add_argument('--group', choices=GROUPS)
-    parser.add_argument('--train-fraction', type=float, default=0.05)
     parser.add_argument('--reg-param', type=float, default=0.001)
     parser.add_argument('--max-iter', type=int, default=80)
     parser.add_argument('--tol', type=float, default=1e-6)
     args = parser.parse_args()
-    if not 0 < args.train_fraction <= 1 or args.reg_param < 0 or args.max_iter < 1:
-        parser.error('Invalid sampling/optimization parameters')
+    if args.reg_param < 0 or args.max_iter < 1:
+        parser.error('Invalid optimization parameters')
     if not args.prepare and not args.group:
         parser.error('Choose --prepare or --group')
     WORK.mkdir(parents=True, exist_ok=True)

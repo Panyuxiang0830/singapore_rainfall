@@ -15,10 +15,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--summary', type=Path, default=ROOT/'work/task2/logistic/summary.json')
-    parser.add_argument('--output', type=Path, default=ROOT/'work/task2/logistic/comparison.png')
+    parser.add_argument('--summary', type=Path, default=ROOT/'work/task2/logistic_full/summary.json')
+    parser.add_argument('--output', type=Path, default=ROOT/'work/task2/logistic_full/comparison.png')
     args = parser.parse_args()
     summary = json.loads(args.summary.read_text())
+    assert summary['preparation']['train_rows'] == 34542285
+    assert summary['preparation']['config']['training_policy'] == 'all_eligible_2017_2022'
     groups = ['calendar_station', 'own_history', 'neighbors']
     names = ['Time + station', '+ Own history', '+ Neighbors']
     thresholds = [0, 5, 25]
@@ -49,7 +51,7 @@ def main():
         ax.set_title(f'> {q} mm: raw-probability reliability')
         ax.legend(fontsize=8)
         ax.grid(alpha=.15)
-    fig.suptitle('Spark MLlib L2 Logistic Regression | 5% train (2017–2022), full test (2024)', fontsize=13)
+    fig.suptitle('Spark MLlib L2 Logistic Regression | full train (2017–2022), full test (2024)', fontsize=13)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=160)
     plt.close(fig)

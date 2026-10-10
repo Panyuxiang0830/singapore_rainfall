@@ -19,7 +19,7 @@ def main():
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25], required=True)
     parser.add_argument('--algorithm', choices=['logistic', 'svm', 'gbt', 'xgb'])
     parser.add_argument('--features-root', type=Path, default=ROOT/'data/task2/features')
-    parser.add_argument('--model-root', type=Path, default=ROOT/'models/model_comparison')
+    parser.add_argument('--model-root', type=Path, default=ROOT/'models/model_comparison_full')
     args = parser.parse_args()
     moment = datetime.fromisoformat(args.time)
     if moment.tzinfo is None:

@@ -1,1 +1,0 @@
-{"class":"org.apache.spark.ml.feature.OneHotEncoderModel","timestamp":1791547842103,"sparkVersion":"3.5.8","uid":"OneHotEncoder_ca9e422bb9f2","paramMap":{"outputCol":"station_vector","handleInvalid":"keep","inputCol":"station_index","dropLast":false},"defaultParamMap":{"outputCol":"OneHotEncoderModel_f9a79412baa1__output","handleInvalid":"error","dropLast":true}}

@@ -17,11 +17,13 @@ COLORS = ['#767f8c', '#249a88', '#3e6eba', '#d07b38']
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--summary', type=Path, default=ROOT/'work/task2/model_comparison/summary.json')
-    parser.add_argument('--output-dir', type=Path, default=ROOT/'work/task2/model_comparison/preview')
+    parser.add_argument('--summary', type=Path, default=ROOT/'work/task2/model_comparison_full/summary.json')
+    parser.add_argument('--output-dir', type=Path, default=ROOT/'work/task2/model_comparison_full/preview')
     parser.add_argument('--validation-only', action='store_true')
     args = parser.parse_args()
     data = json.loads(args.summary.read_text())
+    assert data['preparation']['train_rows'] == 34542285
+    assert data['preparation']['training_policy'] == 'all_eligible_2017_2022'
     args.output_dir.mkdir(parents=True, exist_ok=True)
     thresholds = ['0', '5', '25']
     fig, axes = plt.subplots(1, 3, figsize=(14, 4.8), constrained_layout=True)

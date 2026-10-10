@@ -19,8 +19,9 @@ from pyspark.ml.functions import vector_to_array
 from pyspark.sql import DataFrame, functions as F
 
 from task1_spark import ROOT, save_json, start_spark
+from task2_logistic import SCORE_PARTITIONS
 
-WORK = ROOT / 'work/task2/model_comparison'
+WORK = ROOT / 'work/task2/model_comparison_full'
 
 
 def area(points):
@@ -77,7 +78,7 @@ def simplify(points, epsilon):
 def curves(spark, scores):
     evaluator = BinaryClassificationEvaluator(rawPredictionCol='p', labelCol='y', numBins=0)
     evaluator._transfer_params_to_java()
-    native = evaluator._java_obj.getMetrics(scores._jdf)
+    native = evaluator._java_obj.getMetrics(scores.repartition(SCORE_PARTITIONS)._jdf)
     try:
         result = {'roc_auc': float(native.areaUnderROC()), 'pr_auc': float(native.areaUnderPR())}
         for kind in ['roc', 'pr']:
@@ -136,6 +137,8 @@ def main():
         assert math.isclose(checked['roc_auc'], .75)
         print('CURVE_FIXTURE_PASSED', flush=True)
         manifest = json.loads((WORK/'selection.json').read_text())
+        if manifest['training_data']['rows'] != 34542285 or manifest['training_data']['policy'] != 'all_eligible_rows':
+            raise RuntimeError('Final curves require the full-training experiment')
         for q in [0, 5, 25]:
             dest = WORK/'curves'/f'final_gt_{q}mm.json'
             algorithm = manifest['selected_algorithm_by_threshold'][str(q)]
@@ -143,7 +146,7 @@ def main():
             started = time.monotonic()
             kind = 'linear' if algorithm in ['logistic', 'svm'] else 'tree'
             frame = spark.read.parquet(str(WORK/'vectors'/'test'/kind))
-            pipeline = PipelineModel.load(str(ROOT/'models/model_comparison'/algorithm/policy/f'gt_{q}mm'))
+            pipeline = PipelineModel.load(str(ROOT/'models/model_comparison_full'/algorithm/policy/f'gt_{q}mm'))
             for stage in pipeline.stages[-3:]:
                 frame = stage.transform(frame)
             scores = frame.select(vector_to_array(f'prob_{q}')[1].alias('p'),
@@ -156,7 +159,7 @@ def main():
                 for metric in ['roc_auc', 'pr_auc']:
                     if not math.isclose(result[metric], expected[metric], abs_tol=1e-8):
                         raise RuntimeError(f'{q}: existing {metric} does not match recovered scores')
-                result.update(stats, threshold_mm=q, algorithm=algorithm, policy=policy,
+                result.update(stats, threshold_mm=q, algorithm=algorithm, policy=policy, training_rows=34542285,
                               prevalence=stats['positives']/stats['n'], seconds=time.monotonic()-started)
                 save_json(dest, result)
                 print('FINAL_CURVES_COMPLETE', q, algorithm, policy, result['roc_auc'], result['pr_auc'],

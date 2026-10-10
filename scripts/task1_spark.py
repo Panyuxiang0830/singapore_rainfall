@@ -41,6 +41,8 @@ def start_spark(app_name='SingaporeRainfallTask1'):
                .master('local[2]')
                .config('spark.driver.memory', '2g')
                .config('spark.driver.maxResultSize', '256m')
+               .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer')
+               .config('spark.rdd.compress', 'true')
                .config('spark.sql.shuffle.partitions', '8')
                .config('spark.default.parallelism', '2')
                .config('spark.local.dir', str(scratch))
@@ -48,6 +50,7 @@ def start_spark(app_name='SingaporeRainfallTask1'):
                .config('spark.sql.ansi.enabled', 'false')
                .config('spark.ui.enabled', 'false')
                .config('spark.sql.adaptive.enabled', 'true')
+               .config('spark.sql.inMemoryColumnarStorage.batchSize', '1000')
                .getOrCreate())
     session.sparkContext.setLogLevel('ERROR')
     packages = {}

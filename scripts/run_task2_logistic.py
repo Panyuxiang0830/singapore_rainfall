@@ -18,12 +18,12 @@ def main():
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25])
     parser.add_argument('--check-only', action='store_true')
     parser.add_argument('--groups', choices=GROUPS, nargs='+', default=GROUPS)
-    parser.add_argument('--train-fraction', type=float, default=0.05)
+    parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--reg-param', type=float, default=0.001)
     parser.add_argument('--max-iter', type=int, default=80)
     parser.add_argument('--tol', type=float, default=1e-6)
     args = parser.parse_args()
-    work = ROOT / 'work/task2/logistic'
+    work = ROOT / 'work/task2/logistic_full'
     work.mkdir(parents=True, exist_ok=True)
     lock = (work / 'run.lock').open('w')
     try:
@@ -38,7 +38,7 @@ def main():
                 'OMP_NUM_THREADS': '1', 'SPARK_LOCAL_IP': '127.0.0.1',
                 'PYSPARK_PYTHON': sys.executable, 'TMPDIR': str(ROOT/'work/tmp')})
     env['PATH'] = env['JAVA_HOME']+'/bin:'+env['PATH']
-    base = [sys.executable, '-u', 'scripts/task2_logistic.py', '--train-fraction', str(args.train_fraction),
+    base = [sys.executable, '-u', 'scripts/task2_logistic.py',
             '--reg-param', str(args.reg_param), '--max-iter', str(args.max_iter), '--tol', str(args.tol)]
     if args.check_only:
         run([sys.executable, '-u', 'scripts/check_task2_logistic.py'], env)
@@ -52,6 +52,8 @@ def main():
         return
     if not args.summarize_only:
         run(base+['--prepare'], env)
+        if args.prepare_only:
+            return
         for group in args.groups:
             run(base+['--group', group], env)
     summary = {'status': 'COMPLETE', 'groups': args.groups,
@@ -65,7 +67,7 @@ def main():
     model_manifest['probability_policy'] = 'Independent threshold classifiers; raw probabilities, no cross-threshold monotonicity guarantee'
     model_manifest['thresholds_mm'] = [0, 5, 25]
     model_manifest['model_format'] = 'Spark 3.5.8 PipelineModel (training-fitted imputer, station encoder, assembler, LR)'
-    (ROOT/'models/logistic_baseline/manifest.json').write_text(json.dumps(model_manifest, indent=2)+'\n')
+    (ROOT/'models/logistic_baseline_full/manifest.json').write_text(json.dumps(model_manifest, indent=2)+'\n')
     print('LOGISTIC_COMPARISON_COMPLETE', json.dumps(summary['selected_group_by_validation_pr_auc']), flush=True)
 
 
