@@ -34,17 +34,22 @@ def export_table(frame, name):
 
 
 def start_spark(app_name='SingaporeRainfallTask1'):
+    cpu_threads = int(os.environ.get('RAINFALL_CPU_THREADS', '2'))
+    task_cpus = int(os.environ.get('RAINFALL_TASK_CPUS', '1'))
+    if not 1 <= task_cpus <= cpu_threads <= 20:
+        raise ValueError('Expected 1 <= task CPUs <= project CPUs <= 20')
     scratch = ROOT / 'work/spark'
     scratch.mkdir(parents=True, exist_ok=True)
     os.environ['SPARK_LOCAL_IP'] = '127.0.0.1'
     session = (SparkSession.builder.appName(app_name)
-               .master('local[2]')
+               .master(f'local[{cpu_threads}]')
+               .config('spark.task.cpus', str(task_cpus))
                .config('spark.driver.memory', '2g')
                .config('spark.driver.maxResultSize', '256m')
                .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer')
                .config('spark.rdd.compress', 'true')
-               .config('spark.sql.shuffle.partitions', '8')
-               .config('spark.default.parallelism', '2')
+               .config('spark.sql.shuffle.partitions', str(max(8, cpu_threads * 4)))
+               .config('spark.default.parallelism', str(cpu_threads))
                .config('spark.local.dir', str(scratch))
                .config('spark.sql.session.timeZone', 'Asia/Singapore')
                .config('spark.sql.ansi.enabled', 'false')
@@ -69,8 +74,11 @@ def start_spark(app_name='SingaporeRainfallTask1'):
         'spark': session.version,
         'java': f"{java.getProperty('java.vendor')} {java.getProperty('java.version')}",
         'spark_master': session.sparkContext.master,
+        'project_cpu_threads': cpu_threads,
+        'task_cpus': task_cpus,
+        'jvm_processors': session.sparkContext._jvm.java.lang.Runtime.getRuntime().availableProcessors(),
         'driver_heap_gib': 2,
-        'rss_stop_gib': 4,
+        'rss_stop_gib': float(os.environ.get('RAINFALL_RSS_LIMIT_GIB', '4')),
         'gpu_used': False,
         'packages': packages,
     })
@@ -277,11 +285,11 @@ def aggregate(spark):
     overview['environment'] = {
         'spark_version': spark.version, 'python_version': platform.python_version(),
         'host': platform.node(), 'platform': platform.platform(),
-        'mode': 'Spark local[2] on one machine, not a multi-node cluster',
+        'mode': f'Spark {spark.sparkContext.master} on one machine, not a multi-node cluster',
         'cpu_affinity': sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None,
         'visible_cpu_count': os.cpu_count(), 'physical_memory_bytes': __import__('psutil').virtual_memory().total,
         'driver_heap': '2g',
-        'shuffle_partitions': 8, 'gpu_used': False, 'sgt_timezone': 'Asia/Singapore',
+        'shuffle_partitions': int(spark.conf.get('spark.sql.shuffle.partitions')), 'gpu_used': False, 'sgt_timezone': 'Asia/Singapore',
     }
     save_json(ROOT / 'reports/task1_overview.json', overview)
     print('AGGREGATION COMPLETE', json.dumps(overview, default=str), flush=True)

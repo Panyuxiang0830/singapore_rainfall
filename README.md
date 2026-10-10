@@ -14,13 +14,19 @@ Run data processing and training on gpushare in `/home/research_pyx/singapore`.
 This logical directory points to project-owned `/hy-tmp/singapore_rainfall_pyx`.
 The pinned environment uses Python 3.11.10, Spark 3.5.8, Java 17 and XGBoost 3.2.0.
 Task 1's original analysis used the authorized Mac fallback; Task 2 runs on gpushare.
-Spark `local[2]` uses one machine and two worker threads. It is not a multi-node cluster.
-The training runner pins two CPU threads, uses low process and I/O priority,
+The full-training runner uses Spark `local[20]` on one machine with 20 worker
+threads, 80 shuffle partitions and default parallelism 20. It is not a multi-node cluster.
+The training runner pins 20 CPU threads, uses low process and I/O priority,
 disables GPU use, and monitors memory and disk. Default driver heap is 2 GiB;
-process-tree memory guard is 4 GiB for ordinary Spark phases and 24 GiB for
-XGBoost fitting; free-disk reserve is 5 GiB. These are stop limits, not reservations.
+process-tree memory guard is 12 GiB for ordinary Spark phases and 24 GiB for
+XGBoost fitting and evaluation; free-disk reserve is 5 GiB. These are stop limits,
+not reservations. Each phase requires eight GiB of free-memory headroom above its limit.
 The Spark XGBoost adapter stores all dense training batches before quantizing them;
 the larger bound accommodates the complete 73-feature matrix without dropping rows.
+XGBoost keeps two workers and sets `spark.task.cpus=10`, giving each native
+worker ten threads within the same 20-CPU limit. Other phases use one CPU per task.
+The completed feature-group comparisons used the initial two-CPU configuration;
+the remaining full-feature comparison and evaluation use the 20-CPU configuration.
 The existing pinned runtime lives in `.runtime/`; no global package changes are needed.
 
 For a fresh project, inspect `runtime_metadata/` and use the existing setup scripts:
@@ -92,7 +98,7 @@ Imputation, station vocabulary and feature
 choices are fitted on that period only. Validation and test are never added to training.
 
 ```bash
-PYTHONPATH=.runtime/python python scripts/run_full_training.py
+PYTHONPATH=.runtime/python python scripts/run_full_training.py --cpu-threads 20
 ```
 
 The runner performs these steps sequentially with checkpoints:

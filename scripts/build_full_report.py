@@ -248,11 +248,15 @@ def main():
         results(w,summary,args.benchmark_dir)
     text=prefix+'\n'.join(w.lines)+'\n'+suffix
     old_runtime=next(line for line in prefix.splitlines() if line.startswith(r'\textbf{Spark 配置与分工。}'))
-    runtime=r'\textbf{Spark 配置与分工。}采用单机双线程模式 \texttt{local[2]}，shuffle partitions 为 8，default parallelism 为 2，不使用 GPU。Spark DataFrame/SQL 与窗口函数用于全量清洗、时间聚合、标签和特征构造；模型训练与评价使用 Spark ML 管线。gpushare 进程使用两个 CPU，并以低优先级串行执行各项训练。'
+    runtime=r'\textbf{Spark 配置与分工。}Task 1 与初始特征组比较采用单机双线程模式 \texttt{local[2]}。完整特征的模型比较与评价采用 \texttt{local[20]}，shuffle partitions 为 80，default parallelism 为 20。XGBoost 使用两个工作进程，每个任务配置 10 个 CPU。不使用 GPU，以低优先级串行执行各项实验。Spark DataFrame/SQL 与窗口函数用于全量清洗、时间聚合、标签和特征构造；模型训练与评价使用 Spark ML 管线。'
     text=text.replace(old_runtime,runtime)
-    w.pairs[runtime]=r'\textbf{Spark configuration and responsibilities.} Use single-machine \texttt{local[2]}, eight shuffle partitions, default parallelism two and no GPU. Spark DataFrame/SQL and windows process full-data cleaning, aggregation, labels and features. Spark ML pipelines train and evaluate models. On gpushare, two CPUs run training phases sequentially at low priority.'
+    w.pairs[runtime]=r'\textbf{Spark configuration and responsibilities.} Task 1 and the initial feature-group comparisons use single-machine \texttt{local[2]}. Full-feature model comparison and evaluation use \texttt{local[20]}, 80 shuffle partitions and default parallelism 20. XGBoost uses two workers with ten CPUs per task. Experiments run sequentially at low priority without a GPU. Spark DataFrame/SQL and windows process full-data cleaning, aggregation, labels and features; Spark ML pipelines train and evaluate models.'
     path=ROOT/'scripts/report_task2_content.py'
     spec=importlib.util.spec_from_file_location('reviewed',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    old_environment=next(line for line in prefix.splitlines() if line.startswith(r'\textbf{计算环境。}'))
+    environment=old_environment.replace('本项目限定使用两个 CPU', '完整特征的模型训练限定使用 20 个 CPU')
+    text=text.replace(old_environment,environment)
+    w.pairs[environment]=module.LINE_PAIRS[old_environment].replace('this project uses two CPUs', 'full-feature model training uses 20 CPUs')
     pairs={k:v for k,v in module.LINE_PAIRS.items() if k in text};pairs.update(w.pairs)
     overrides={k:v for k,v in module.OVERRIDES.items() if v[0] in text}
     labels={k:v for k,v in module.LABELS.items() if k in text}

@@ -8,17 +8,22 @@
   audit logs, previews or ZIP backups in the deliverable directory or Git.
   Retain source code, required static inputs, LaTeX sources and PDF reports.
 - Run subsequent full-data work on gpushare under /home/research_pyx/singapore.
-  Start with two CPU threads and 2 GiB driver heap, low process priority, no GPU,
-  and the existing 4 GiB process-tree monitoring bound. Avoid duplicate jobs;
+  Full training now uses 20 CPU threads (explicit user authorization on 10 Oct),
+  with 2 GiB driver heap, low process priority, no GPU,
+  and a 12 GiB process-tree monitoring bound for 20-way parallel workers
+  (the measured 20-CPU fixture peak exceeded the original 4 GiB guard).
+  Require at least eight GiB free-memory headroom above the phase bound. Avoid duplicate jobs;
   inspect this project's existing processes before launching a new run.
 - Full-data XGBoost fitting may use a 24 GiB process-tree stop bound because
-  its Spark adapter retains dense batches. Keep two CPUs and low priority;
-  require at least 32 GiB free memory. Other phases retain the 4 GiB bound.
+  its Spark adapter retains dense batches. Keep 20 CPUs and low priority;
+  use two Spark XGBoost workers with ten CPUs per task rather than 20 workers;
+  require at least 32 GiB free memory. XGBoost evaluation has the same bound;
+  other phases use the 12 GiB bound.
 - Record actual execution hardware, Spark deployment mode and resource limits.
   Historical Task 1 results were computed on the Mac; describe them as gpushare
   results only after the corresponding analysis is actually rerun there.
   Synchronize any resulting report content changes in both languages.
-- A gpushare VM running Spark local[2] is a single-machine deployment, not a
+- A gpushare VM running Spark local[20] is a single-machine deployment, not a
   multi-node cluster. Do not install global packages or alter other projects.
 - Task 1 is complete. Task 2 is being retrained using all eligible training rows.
   Push and verify final backups before removing the server project

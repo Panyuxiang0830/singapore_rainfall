@@ -7,6 +7,7 @@ Only the validation-selected policy per algorithm/threshold sees full 2024 test.
 import argparse
 import json
 import math
+import os
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -151,7 +152,7 @@ def estimator(algorithm, q, dimension):
         # CPU task count controls threads in the Spark estimator; nthread/n_jobs are not set.
         return SparkXGBClassifier(features_col='features', label_col=f'label_gt_{q}mm',
                    weight_col='weight', raw_prediction_col=f'raw_{q}', prediction_col=f'base_pred_{q}',
-                   probability_col=f'base_prob_{q}', num_workers=2, device='cpu', tree_method='hist',
+                   probability_col=f'base_prob_{q}', num_workers=min(2, int(os.environ.get('RAINFALL_CPU_THREADS', '2'))), device='cpu', tree_method='hist',
                    feature_types=['q']*(dimension-1)+['c'], n_estimators=80,
                    max_depth=4, learning_rate=0.1, max_bin=64, min_child_weight=20,
                    reg_lambda=1.0, reg_alpha=0.0, subsample=1.0, colsample_bytree=1.0,
@@ -193,7 +194,10 @@ def fit_group(spark, algorithm, policy):
     # a much larger SQL row cache. This changes storage, never training rows.
     train = stored_vectors
     log('MODEL_GROUP_START', algorithm=algorithm, policy=policy, rows=prepared['train_rows'],
-        dimension=dimension, file_scan_partitions=train.rdd.getNumPartitions())
+        dimension=dimension, file_scan_partitions=train.rdd.getNumPartitions(),
+        spark_master=spark.sparkContext.master,
+        task_cpus=spark.sparkContext.getConf().get('spark.task.cpus'),
+        jvm_processors=spark.sparkContext._jvm.java.lang.Runtime.getRuntime().availableProcessors())
     bases, results = {}, {}
     try:
         for q in THRESHOLDS_MM:
@@ -230,6 +234,11 @@ def fit_group(spark, algorithm, policy):
                       'assembled_features': assembled, 'base_params': base_config,
                       'training_rows': n+(json.loads((WORK/'smote'/f'gt_{q}mm'/'generation.json').read_text())['added_rows'] if policy == 'smote' else 0),
                       'real_training_rows': n, 'real_training_positives': p}
+            result['fit_runtime'] = {
+                'spark_master': spark.sparkContext.master,
+                'task_cpus': int(spark.sparkContext.getConf().get('spark.task.cpus')),
+                'jvm_processors': spark.sparkContext._jvm.java.lang.Runtime.getRuntime().availableProcessors(),
+            }
             save_json(state, result)
             bases[q] = base; results[str(q)] = result
             log('BASE_FIT_COMPLETE', algorithm=algorithm, policy=policy, threshold=q, fit_seconds=elapsed, **optimization)
@@ -337,7 +346,8 @@ def select_models():
                 'thresholds_mm': list(THRESHOLDS_MM), 'algorithms': ALGORITHMS,
                 'calibration': 'Monotone Platt fit on natural 2023 H1; all base models fit all eligible 2017--2022 rows',
                 'feature_definition': 'task2_features.NUMERIC_FEATURES and station_id',
-                'runtime': {'spark': '3.5.8', 'xgboost': '3.2.0', 'master': 'local[2]',
+                'runtime': {'spark': '3.5.8', 'xgboost': '3.2.0',
+                            'master': f"local[{int(os.environ.get('RAINFALL_CPU_THREADS', '2'))}]",
                             'resource_configuration': json.loads((ROOT/'work/task2/full_run/resource_limits.json').read_text())
                             if (ROOT/'work/task2/full_run/resource_limits.json').exists()
                             else {'cpu_threads': 2, 'driver_heap_gib': 2,

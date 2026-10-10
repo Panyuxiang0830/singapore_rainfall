@@ -51,13 +51,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runner-pid', type=int, required=True)
     parser.add_argument('--xgb-memory-gib', type=float, default=24.)
+    parser.add_argument('--cpu-threads', type=int, default=20)
     args = parser.parse_args()
     assert 4 < args.xgb_memory_gib <= 24
     WORK.mkdir(parents=True, exist_ok=True)
     lock = (WORK/'supervision.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     if hasattr(os, 'sched_getaffinity'):
-        os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:2])
+        os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:args.cpu_threads])
     os.setpriority(os.PRIO_PROCESS, 0, 19)
     print('OBSERVING_EXISTING_FULL_RUN', args.runner_pid, flush=True)
     wait(args.runner_pid)
@@ -76,6 +77,7 @@ def main():
     env['PYTHONPATH'] = str(ROOT/'.runtime/python')
     with (WORK/'run.log').open('ab') as out:
         child = subprocess.Popen([sys.executable, '-u', 'scripts/run_full_training.py',
+                                  '--cpu-threads', str(args.cpu_threads),
                                   '--xgb-memory-gib', str(args.xgb_memory_gib)],
                                  cwd=ROOT, env=env, stdin=subprocess.DEVNULL,
                                  stdout=out, stderr=subprocess.STDOUT, start_new_session=True)

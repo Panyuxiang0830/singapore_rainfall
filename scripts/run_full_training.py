@@ -50,7 +50,7 @@ def terminate(process):
 def phase(name, command, env, memory_gib):
     started = time.monotonic()
     state = {'status': 'RUNNING', 'phase': name, 'started_epoch': time.time(),
-             'full_training_rows': 34542285, 'cpu_threads': 2,
+             'full_training_rows': 34542285, 'cpu_threads': int(env['RAINFALL_CPU_THREADS']),
              'phase_memory_limit_gib': memory_gib}
     save(PROGRESS/'status.json', state)
     print('FULL_PHASE_START', name, flush=True)
@@ -103,40 +103,57 @@ def phase(name, command, env, memory_gib):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--memory-gib', type=float, default=4.)
+    parser.add_argument('--memory-gib', type=float, default=12.)
     parser.add_argument('--xgb-memory-gib', type=float, default=24.)
+    parser.add_argument('--cpu-threads', type=int, default=20)
     parser.add_argument('--prepare-benchmark-only', action='store_true')
     args = parser.parse_args()
+    if not 1 <= args.cpu_threads <= 20:
+        parser.error('--cpu-threads must be between 1 and 20')
     PROGRESS.mkdir(parents=True, exist_ok=True)
     lock = (PROGRESS/'run.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     save(PROGRESS/'runner.json', {'pid': os.getpid(), 'started_epoch': time.time()})
-    save(PROGRESS/'resource_limits.json', {'cpu_threads': 2, 'driver_heap_gib': 2,
+    save(PROGRESS/'resource_limits.json', {'cpu_threads': args.cpu_threads, 'driver_heap_gib': 2,
+         'spark_master': f'local[{args.cpu_threads}]',
+         'shuffle_partitions': max(8, args.cpu_threads * 4),
+         'default_parallelism': args.cpu_threads,
+         'xgb_workers': min(2, args.cpu_threads),
+         'xgb_threads_per_worker': max(1, args.cpu_threads // min(2, args.cpu_threads)),
          'spark_phase_rss_limit_gib': args.memory_gib,
          'xgb_phase_rss_limit_gib': args.xgb_memory_gib,
          'free_disk_reserve_gib': 5, 'gpu': False, 'nice': 19, 'ionice_class': 3})
     if hasattr(os, 'sched_getaffinity'):
-        os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:2])
+        available_cpus = sorted(os.sched_getaffinity(0))
+        if len(available_cpus) < args.cpu_threads:
+            raise RuntimeError('Insufficient CPUs in the allowed affinity set')
+        os.sched_setaffinity(0, available_cpus[:args.cpu_threads])
     os.setpriority(os.PRIO_PROCESS, 0, 19)
     if shutil.which('ionice'):
         subprocess.run(['ionice', '-c', '3', '-p', str(os.getpid())], check=True)
     env = os.environ.copy()
     env.update({'JAVA_HOME': str(ROOT/'.runtime/java'), 'PYTHONPATH': str(ROOT/'.runtime/python'),
-                'JAVA_TOOL_OPTIONS': '-XX:ActiveProcessorCount=2', 'OPENBLAS_NUM_THREADS': '1',
+                'JAVA_TOOL_OPTIONS': f'-XX:ActiveProcessorCount={args.cpu_threads}', 'OPENBLAS_NUM_THREADS': '1',
+                'RAINFALL_CPU_THREADS': str(args.cpu_threads), 'RAINFALL_TASK_CPUS': '1',
+                'RAINFALL_RSS_LIMIT_GIB': str(args.memory_gib),
                 'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'CUDA_VISIBLE_DEVICES': '',
                 'SPARK_LOCAL_IP': '127.0.0.1', 'PYSPARK_PYTHON': sys.executable,
                 'TMPDIR': str(ROOT/'work/tmp')})
     env['PATH'] = env['JAVA_HOME']+'/bin:'+env['PATH']
     (ROOT/'work/tmp').mkdir(parents=True, exist_ok=True)
     def run(name, script, *arguments, xgb=False):
+        from supervise_full_training import available_gib
+        required_memory = args.xgb_memory_gib if xgb else args.memory_gib
+        if available_gib() < required_memory+8:
+            reason = 'Insufficient free memory for the bounded full-data phase'
+            save(PROGRESS/'status.json', {'status': 'FAILED', 'phase': name,
+                 'failure_error': reason, 'full_training_rows': 34542285})
+            raise RuntimeError(reason)
+        phase_env = env.copy()
         if xgb:
-            from supervise_full_training import available_gib
-            if available_gib() < args.xgb_memory_gib+8:
-                reason = 'Insufficient free memory for the bounded full-data XGBoost phase'
-                save(PROGRESS/'status.json', {'status': 'FAILED', 'phase': name,
-                     'failure_error': reason, 'full_training_rows': 34542285})
-                raise RuntimeError(reason)
-        phase(name, [sys.executable, '-u', 'scripts/'+script, *arguments], env,
+            phase_env['RAINFALL_TASK_CPUS'] = str(max(1, args.cpu_threads // min(2, args.cpu_threads)))
+            phase_env['RAINFALL_RSS_LIMIT_GIB'] = str(args.xgb_memory_gib)
+        phase(name, [sys.executable, '-u', 'scripts/'+script, *arguments], phase_env,
               args.xgb_memory_gib if xgb else args.memory_gib)
     # A separately launched initial preparation may still be finishing.
     initial_pid = BASE/'prepare.pid'
@@ -183,10 +200,10 @@ def main():
                 '--algorithm', algorithm, '--policy', policy, xgb=algorithm == 'xgb')
     run('validation_selection', 'task2_models.py', '--phase', 'select')
     for algorithm in ALGORITHMS:
-        run(algorithm+'_test', 'task2_models.py', '--phase', 'test', '--algorithm', algorithm)
-    run('full_train_diagnostics', 'task2_models.py', '--phase', 'train-diagnostics')
-    run('model_artifact_checks', 'task2_models.py', '--phase', 'artifacts')
-    run('final_curves', 'task2_curves.py', '--worker')
+        run(algorithm+'_test', 'task2_models.py', '--phase', 'test', '--algorithm', algorithm, xgb=algorithm == 'xgb')
+    run('full_train_diagnostics', 'task2_models.py', '--phase', 'train-diagnostics', xgb=True)
+    run('model_artifact_checks', 'task2_models.py', '--phase', 'artifacts', xgb=True)
+    run('final_curves', 'task2_curves.py', '--worker', xgb=True)
     summary = {'status': 'COMPLETE', 'preparation': read(BENCH/'preparation.json'),
                'selection': read(BENCH/'selection.json'),
                'smote': {str(q): read(BENCH/'smote'/f'gt_{q}mm'/'generation.json') for q in [0,5,25]},
