@@ -153,6 +153,10 @@ def results(w, summary, benchmark):
             ys=[summary['candidates'][a][p]['models'][str(q)]['validation']['pr_auc'] for q in QS]
             rows.append(([NAMES[a]+' / '+POLICY_CN[p], *[f(v) for v in ys]], [NAMES[a]+' / '+POLICY_EN[p], *[f(v) for v in ys]]))
     w.table('lrrr', ['算法 / 策略', '选择 PR-AUC：0 mm', '5 mm', '25 mm'], ['Algorithm / policy', 'Selection PR-AUC: 0 mm', '5 mm', '25 mm'], rows)
+    caps = {a: sum(summary['candidates'][a][p]['models'][str(q)]['iteration_cap_reached']
+                   for p in POLICIES for q in QS) for a in ['logistic', 'svm']}
+    w.paragraph('迭代状态', f"正式比较中，Logistic 的九个模型有 {caps['logistic']} 个达到 100 次迭代上限，SVM 的九个模型有 {caps['svm']} 个达到该上限。",
+                'Iteration status', f"Among the nine main logistic models, {caps['logistic']} reach the 100-iteration cap; {caps['svm']} of the nine SVM models reach that cap.")
     chosen=[]
     for q in QS:
         a=selected['selected_algorithm_by_threshold'][str(q)];p=selected['selected_policy_by_algorithm_and_threshold'][a][str(q)]
