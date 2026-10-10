@@ -31,9 +31,11 @@
   Synchronize any resulting report content changes in both languages.
 - A gpushare VM running Spark local[20] is a single-machine deployment, not a
   multi-node cluster. Do not install global packages or alter other projects.
-- Task 1 is complete. Task 2 is being retrained using all eligible training rows.
+- Tasks 1 and 2 are complete. Every model used all eligible training rows.
   Push and verify final backups before removing the server project
   at full-project completion; report/backup work alone does not authorize early cleanup.
+  Final backups were verified and the original server project and symlink were removed
+  on 11 October. Recreate the isolated runtime/data before a new server run.
 
 - Server storage: /home/research_pyx/singapore is a symlink to the project-owned
   /hy-tmp/singapore_rainfall_pyx directory after checksum-verified migration.

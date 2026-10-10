@@ -27,12 +27,14 @@ XGBoost keeps two workers and sets `spark.task.cpus=10`, giving each native
 worker ten threads within the same 20-CPU limit. Other phases use one CPU per task.
 The completed feature-group comparisons used the initial two-CPU configuration;
 the remaining full-feature comparison and evaluation use the 20-CPU configuration.
-The existing pinned runtime lives in `.runtime/`; no global package changes are needed.
+The reproducible project runtime belongs in `.runtime/`; no global package changes are needed.
 
-For a fresh project, inspect `runtime_metadata/` and use the existing setup scripts:
+For a fresh checkout, use Python 3.11, inspect `runtime_metadata/`, and run:
 
 ```bash
-python3 -m venv .venv
+git clone https://github.com/Panyuxiang0830/singapore_rainfall.git singapore
+cd singapore
+python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-task2.txt
 python scripts/configure_runtime.py
@@ -41,7 +43,8 @@ python scripts/setup_runtime.py --java-only
 
 Use Python 3.11 for the pinned environment. This fresh-checkout setup installs
 packages inside `.venv/` and Java inside `.runtime/`; it changes no global packages.
-The existing gpushare runtime does not need reinstallation. Runtime and working
+The original gpushare project directory was removed after verified final backups.
+A fresh checkout needs the isolated runtime and data rebuilt. Runtime and working
 data are ignored by Git. XGBoost phase startup requires eight GiB of free memory
 above its configured process-tree limit.
 
