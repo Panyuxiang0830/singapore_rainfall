@@ -26,11 +26,18 @@ The existing pinned runtime lives in `.runtime/`; no global package changes are 
 For a fresh project, inspect `runtime_metadata/` and use the existing setup scripts:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements-task2.txt
 python scripts/configure_runtime.py
-python scripts/setup_runtime.py
+python scripts/setup_runtime.py --java-only
 ```
 
-Dependencies are listed in `requirements*.txt`. Runtime and working data are ignored by Git.
+Use Python 3.11 for the pinned environment. This fresh-checkout setup installs
+packages inside `.venv/` and Java inside `.runtime/`; it changes no global packages.
+The existing gpushare runtime does not need reinstallation. Runtime and working
+data are ignored by Git. XGBoost phase startup requires eight GiB of free memory
+above its configured process-tree limit.
 
 ## Full data processing and Task 1
 
