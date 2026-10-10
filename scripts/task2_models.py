@@ -329,7 +329,11 @@ def select_models():
                 'thresholds_mm': list(THRESHOLDS_MM), 'algorithms': ALGORITHMS,
                 'calibration': 'Monotone Platt fit on natural 2023 H1; all base models fit all eligible 2017--2022 rows',
                 'feature_definition': 'task2_features.NUMERIC_FEATURES and station_id',
-                'runtime': 'Spark 3.5.8; XGBoost Spark 3.2.0; local[2], 2 CPU affinity, 2 GiB driver, 4 GiB sampled tree RSS limit'}
+                'runtime': {'spark': '3.5.8', 'xgboost': '3.2.0', 'master': 'local[2]',
+                            'resource_configuration': json.loads((ROOT/'work/task2/full_run/resource_limits.json').read_text())
+                            if (ROOT/'work/task2/full_run/resource_limits.json').exists()
+                            else {'cpu_threads': 2, 'driver_heap_gib': 2,
+                                  'spark_phase_rss_limit_gib': 4, 'xgb_phase_rss_limit_gib': 4}}}
     save_json(MODELS/'manifest.json', manifest)
     save_json(WORK/'selection.json', manifest)
     log('VALIDATION_SELECTION_COMPLETE', selected=selected)

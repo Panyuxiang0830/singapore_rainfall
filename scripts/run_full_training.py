@@ -88,11 +88,11 @@ def phase(name, command, env, memory_gib):
                 time.sleep(5)
             if process.returncode:
                 raise RuntimeError(f'{name}: phase failed, code {process.returncode}; inspect {log_path}')
-        except BaseException:
+        except BaseException as error:
             if process.poll() is None:
                 terminate(process)
             state.update(status='FAILED', elapsed_s=time.monotonic()-started,
-                         peak_rss_gib=peak)
+                         peak_rss_gib=peak, failure_error=str(error))
             save(PROGRESS/'status.json', state)
             raise
     state.update(status='PHASE_COMPLETE', elapsed_s=time.monotonic()-started,
@@ -104,13 +104,17 @@ def phase(name, command, env, memory_gib):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--memory-gib', type=float, default=4.)
-    parser.add_argument('--xgb-memory-gib', type=float, default=4.)
+    parser.add_argument('--xgb-memory-gib', type=float, default=24.)
     parser.add_argument('--prepare-benchmark-only', action='store_true')
     args = parser.parse_args()
     PROGRESS.mkdir(parents=True, exist_ok=True)
     lock = (PROGRESS/'run.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     save(PROGRESS/'runner.json', {'pid': os.getpid(), 'started_epoch': time.time()})
+    save(PROGRESS/'resource_limits.json', {'cpu_threads': 2, 'driver_heap_gib': 2,
+         'spark_phase_rss_limit_gib': args.memory_gib,
+         'xgb_phase_rss_limit_gib': args.xgb_memory_gib,
+         'free_disk_reserve_gib': 5, 'gpu': False, 'nice': 19, 'ionice_class': 3})
     if hasattr(os, 'sched_getaffinity'):
         os.sched_setaffinity(0, sorted(os.sched_getaffinity(0))[:2])
     os.setpriority(os.PRIO_PROCESS, 0, 19)
@@ -125,6 +129,13 @@ def main():
     env['PATH'] = env['JAVA_HOME']+'/bin:'+env['PATH']
     (ROOT/'work/tmp').mkdir(parents=True, exist_ok=True)
     def run(name, script, *arguments, xgb=False):
+        if xgb:
+            from supervise_full_training import available_gib
+            if available_gib() < args.xgb_memory_gib+8:
+                reason = 'Insufficient free memory for the bounded full-data XGBoost phase'
+                save(PROGRESS/'status.json', {'status': 'FAILED', 'phase': name,
+                     'failure_error': reason, 'full_training_rows': 34542285})
+                raise RuntimeError(reason)
         phase(name, [sys.executable, '-u', 'scripts/'+script, *arguments], env,
               args.xgb_memory_gib if xgb else args.memory_gib)
     # A separately launched initial preparation may still be finishing.
@@ -173,6 +184,7 @@ def main():
                'candidates': {a: {p: read(BENCH/'results'/f'{a}_{p}.json') for p in POLICIES} for a in ALGORITHMS},
                'test': {a: read(BENCH/'test'/f'{a}.json') for a in ALGORITHMS},
                'train_final': {str(q): read(BENCH/'train_final'/f'gt_{q}mm.json') for q in [0,5,25]},
+               'resource_configuration': read(PROGRESS/'resource_limits.json'),
                'artifact_checks': read(BENCH/'artifact_checks.json')}
     save(BENCH/'summary.json', summary)
     save(PROGRESS/'status.json', {'status': 'COMPLETE', 'full_training_rows': 34542285,

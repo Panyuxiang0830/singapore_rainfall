@@ -17,7 +17,10 @@ Task 1's original analysis used the authorized Mac fallback; Task 2 runs on gpus
 Spark `local[2]` uses one machine and two worker threads. It is not a multi-node cluster.
 The training runner pins two CPU threads, uses low process and I/O priority,
 disables GPU use, and monitors memory and disk. Default driver heap is 2 GiB;
-process-tree memory guard is 4 GiB and free-disk reserve is 5 GiB.
+process-tree memory guard is 4 GiB for ordinary Spark phases and 24 GiB for
+XGBoost fitting; free-disk reserve is 5 GiB. These are stop limits, not reservations.
+The Spark XGBoost adapter stores all dense training batches before quantizing them;
+the larger bound accommodates the complete 73-feature matrix without dropping rows.
 The existing pinned runtime lives in `.runtime/`; no global package changes are needed.
 
 For a fresh project, inspect `runtime_metadata/` and use the existing setup scripts:

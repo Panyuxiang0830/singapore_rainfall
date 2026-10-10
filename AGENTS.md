@@ -11,6 +11,9 @@
   Start with two CPU threads and 2 GiB driver heap, low process priority, no GPU,
   and the existing 4 GiB process-tree monitoring bound. Avoid duplicate jobs;
   inspect this project's existing processes before launching a new run.
+- Full-data XGBoost fitting may use a 24 GiB process-tree stop bound because
+  its Spark adapter retains dense batches. Keep two CPUs and low priority;
+  require at least 32 GiB free memory. Other phases retain the 4 GiB bound.
 - Record actual execution hardware, Spark deployment mode and resource limits.
   Historical Task 1 results were computed on the Mac; describe them as gpushare
   results only after the corresponding analysis is actually rerun there.
