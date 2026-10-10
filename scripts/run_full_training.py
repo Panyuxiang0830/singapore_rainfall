@@ -106,15 +106,18 @@ def main():
     parser.add_argument('--memory-gib', type=float, default=12.)
     parser.add_argument('--xgb-memory-gib', type=float, default=24.)
     parser.add_argument('--cpu-threads', type=int, default=20)
+    parser.add_argument('--driver-heap-gib', type=int, default=6)
     parser.add_argument('--prepare-benchmark-only', action='store_true')
     args = parser.parse_args()
     if not 1 <= args.cpu_threads <= 20:
         parser.error('--cpu-threads must be between 1 and 20')
+    if args.driver_heap_gib < 1 or args.driver_heap_gib + 2 > args.memory_gib:
+        parser.error('Driver heap must leave at least 2 GiB within the process-tree bound')
     PROGRESS.mkdir(parents=True, exist_ok=True)
     lock = (PROGRESS/'run.lock').open('a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     save(PROGRESS/'runner.json', {'pid': os.getpid(), 'started_epoch': time.time()})
-    save(PROGRESS/'resource_limits.json', {'cpu_threads': args.cpu_threads, 'driver_heap_gib': 2,
+    save(PROGRESS/'resource_limits.json', {'cpu_threads': args.cpu_threads, 'driver_heap_gib': args.driver_heap_gib,
          'spark_master': f'local[{args.cpu_threads}]',
          'shuffle_partitions': max(8, args.cpu_threads * 4),
          'default_parallelism': args.cpu_threads,
@@ -136,6 +139,7 @@ def main():
                 'JAVA_TOOL_OPTIONS': f'-XX:ActiveProcessorCount={args.cpu_threads}', 'OPENBLAS_NUM_THREADS': '1',
                 'RAINFALL_CPU_THREADS': str(args.cpu_threads), 'RAINFALL_TASK_CPUS': '1',
                 'RAINFALL_RSS_LIMIT_GIB': str(args.memory_gib),
+                'RAINFALL_DRIVER_HEAP_GIB': str(args.driver_heap_gib),
                 'OMP_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1', 'CUDA_VISIBLE_DEVICES': '',
                 'SPARK_LOCAL_IP': '127.0.0.1', 'PYSPARK_PYTHON': sys.executable,
                 'TMPDIR': str(ROOT/'work/tmp')})

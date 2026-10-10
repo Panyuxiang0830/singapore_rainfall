@@ -9,7 +9,8 @@
   Retain source code, required static inputs, LaTeX sources and PDF reports.
 - Run subsequent full-data work on gpushare under /home/research_pyx/singapore.
   Full training now uses 20 CPU threads (explicit user authorization on 10 Oct),
-  with 2 GiB driver heap, low process priority, no GPU,
+  with 6 GiB driver heap (the 20-task full-data cache exhausted the initial 2 GiB),
+  low process priority, no GPU,
   and a 12 GiB process-tree monitoring bound for 20-way parallel workers
   (the measured 20-CPU fixture peak exceeded the original 4 GiB guard).
   Require at least eight GiB free-memory headroom above the phase bound. Avoid duplicate jobs;

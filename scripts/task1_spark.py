@@ -36,6 +36,7 @@ def export_table(frame, name):
 def start_spark(app_name='SingaporeRainfallTask1'):
     cpu_threads = int(os.environ.get('RAINFALL_CPU_THREADS', '2'))
     task_cpus = int(os.environ.get('RAINFALL_TASK_CPUS', '1'))
+    driver_heap_gib = int(os.environ.get('RAINFALL_DRIVER_HEAP_GIB', '2'))
     if not 1 <= task_cpus <= cpu_threads <= 20:
         raise ValueError('Expected 1 <= task CPUs <= project CPUs <= 20')
     scratch = ROOT / 'work/spark'
@@ -44,7 +45,7 @@ def start_spark(app_name='SingaporeRainfallTask1'):
     session = (SparkSession.builder.appName(app_name)
                .master(f'local[{cpu_threads}]')
                .config('spark.task.cpus', str(task_cpus))
-               .config('spark.driver.memory', '2g')
+               .config('spark.driver.memory', f'{driver_heap_gib}g')
                .config('spark.driver.maxResultSize', '256m')
                .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer')
                .config('spark.rdd.compress', 'true')
@@ -77,7 +78,7 @@ def start_spark(app_name='SingaporeRainfallTask1'):
         'project_cpu_threads': cpu_threads,
         'task_cpus': task_cpus,
         'jvm_processors': session.sparkContext._jvm.java.lang.Runtime.getRuntime().availableProcessors(),
-        'driver_heap_gib': 2,
+        'driver_heap_gib': driver_heap_gib,
         'rss_stop_gib': float(os.environ.get('RAINFALL_RSS_LIMIT_GIB', '4')),
         'gpu_used': False,
         'packages': packages,
@@ -288,7 +289,7 @@ def aggregate(spark):
         'mode': f'Spark {spark.sparkContext.master} on one machine, not a multi-node cluster',
         'cpu_affinity': sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None,
         'visible_cpu_count': os.cpu_count(), 'physical_memory_bytes': __import__('psutil').virtual_memory().total,
-        'driver_heap': '2g',
+        'driver_heap': spark.sparkContext.getConf().get('spark.driver.memory'),
         'shuffle_partitions': int(spark.conf.get('spark.sql.shuffle.partitions')), 'gpu_used': False, 'sgt_timezone': 'Asia/Singapore',
     }
     save_json(ROOT / 'reports/task1_overview.json', overview)

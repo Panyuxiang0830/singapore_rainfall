@@ -254,9 +254,9 @@ def main():
     path=ROOT/'scripts/report_task2_content.py'
     spec=importlib.util.spec_from_file_location('reviewed',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     old_environment=next(line for line in prefix.splitlines() if line.startswith(r'\textbf{计算环境。}'))
-    environment=old_environment.replace('本项目限定使用两个 CPU', '完整特征的模型训练限定使用 20 个 CPU')
+    environment=old_environment.replace('本项目限定使用两个 CPU', '完整特征的模型训练限定使用 20 个 CPU').replace('driver heap 为 2 GiB', 'driver heap 为 6 GiB')
     text=text.replace(old_environment,environment)
-    w.pairs[environment]=module.LINE_PAIRS[old_environment].replace('this project uses two CPUs', 'full-feature model training uses 20 CPUs')
+    w.pairs[environment]=module.LINE_PAIRS[old_environment].replace('this project uses two CPUs', 'full-feature model training uses 20 CPUs').replace('a 2 GiB driver heap', 'a 6 GiB driver heap')
     pairs={k:v for k,v in module.LINE_PAIRS.items() if k in text};pairs.update(w.pairs)
     overrides={k:v for k,v in module.OVERRIDES.items() if v[0] in text}
     labels={k:v for k,v in module.LABELS.items() if k in text}

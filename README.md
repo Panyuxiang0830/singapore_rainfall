@@ -17,7 +17,7 @@ Task 1's original analysis used the authorized Mac fallback; Task 2 runs on gpus
 The full-training runner uses Spark `local[20]` on one machine with 20 worker
 threads, 80 shuffle partitions and default parallelism 20. It is not a multi-node cluster.
 The training runner pins 20 CPU threads, uses low process and I/O priority,
-disables GPU use, and monitors memory and disk. Default driver heap is 2 GiB;
+disables GPU use, and monitors memory and disk. Full-training driver heap is 6 GiB;
 process-tree memory guard is 12 GiB for ordinary Spark phases and 24 GiB for
 XGBoost fitting and evaluation; free-disk reserve is 5 GiB. These are stop limits,
 not reservations. Each phase requires eight GiB of free-memory headroom above its limit.
