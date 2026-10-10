@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.VectorSlicer","timestamp":1791622656679,"sparkVersion":"3.5.8","uid":"VectorSlicer_f97d10bc4748","paramMap":{"inputCol":"raw_5","outputCol":"cal_features_5","indices":[1]},"defaultParamMap":{"indices":[],"outputCol":"VectorSlicer_f97d10bc4748__output","names":[]}}

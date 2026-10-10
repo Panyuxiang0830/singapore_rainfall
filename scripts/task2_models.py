@@ -238,6 +238,7 @@ def fit_group(spark, algorithm, policy):
                 'spark_master': spark.sparkContext.master,
                 'task_cpus': int(spark.sparkContext.getConf().get('spark.task.cpus')),
                 'jvm_processors': spark.sparkContext._jvm.java.lang.Runtime.getRuntime().availableProcessors(),
+                'jvm_max_heap_gib': spark.sparkContext._jvm.java.lang.Runtime.getRuntime().maxMemory() / 1024**3,
             }
             save_json(state, result)
             bases[q] = base; results[str(q)] = result
