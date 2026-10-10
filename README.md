@@ -18,9 +18,9 @@ The full-training runner uses Spark `local[20]` on one machine with 20 worker
 threads, 80 shuffle partitions and default parallelism 20. It is not a multi-node cluster.
 The training runner pins 20 CPU threads, uses low process and I/O priority,
 disables GPU use, and monitors memory and disk. Default full-training driver heap is 6 GiB;
-GBT fitting uses a 16 GiB heap after full-data training exhausted 6 GiB.
-process-tree memory guard is 12 GiB for ordinary Spark phases and 24 GiB for
-GBT fitting and XGBoost fitting/evaluation; free-disk reserve is 5 GiB. These are stop limits,
+GBT fitting uses a 32 GiB heap after full-data training exhausted 6 and 16 GiB.
+The process-tree memory guard is 12 GiB for ordinary Spark phases, 48 GiB for
+GBT fitting, and 24 GiB for XGBoost fitting/evaluation; free-disk reserve is 5 GiB. These are stop limits,
 not reservations. Each phase requires eight GiB of free-memory headroom above its limit.
 The Spark XGBoost adapter stores all dense training batches before quantizing them;
 the larger bound accommodates the complete 73-feature matrix without dropping rows.

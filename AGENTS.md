@@ -20,9 +20,9 @@
   use two Spark XGBoost workers with ten CPUs per task rather than 20 workers;
   require at least 32 GiB free memory. XGBoost evaluation has the same bound;
   other phases use the 12 GiB bound.
-- Full-data GBT fitting uses a 16 GiB driver heap and a 24 GiB process-tree
-  bound after the measured full-data cache exhausted 6 GiB. Keep 20 CPU tasks,
-  low priority and at least 32 GiB available memory; retain every training row
+- Full-data GBT fitting uses a 32 GiB driver heap and a 48 GiB process-tree
+  bound after measured full-data fits exhausted 6 and 16 GiB heaps. Keep 20 CPU tasks,
+  low priority and at least 56 GiB available memory; retain every training row
   and all model/feature parameters. Other phases retain their stated bounds.
 - Record actual execution hardware, Spark deployment mode and resource limits.
   Historical Task 1 results were computed on the Mac; describe them as gpushare

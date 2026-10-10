@@ -108,8 +108,8 @@ def main():
     parser.add_argument('--xgb-memory-gib', type=float, default=24.)
     parser.add_argument('--cpu-threads', type=int, default=20)
     parser.add_argument('--driver-heap-gib', type=int, default=6)
-    parser.add_argument('--gbt-driver-heap-gib', type=int, default=16)
-    parser.add_argument('--gbt-memory-gib', type=float, default=24.)
+    parser.add_argument('--gbt-driver-heap-gib', type=int, default=32)
+    parser.add_argument('--gbt-memory-gib', type=float, default=48.)
     parser.add_argument('--prepare-benchmark-only', action='store_true')
     args = parser.parse_args()
     if not 1 <= args.cpu_threads <= 20:
