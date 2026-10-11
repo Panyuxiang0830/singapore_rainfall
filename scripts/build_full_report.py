@@ -87,7 +87,7 @@ def methods(w, prepared, baseline):
             (['2023 下半年：模型选择', '3,393,373', '197,358', '28,000', '2,487'], ['2023 H2: selection', '3,393,373', '197,358', '28,000', '2,487']),
             (['2024：测试', '6,374,476', '405,430', '53,193', '3,517'], ['2024: test', '6,374,476', '405,430', '53,193', '3,517'])]
     w.table('lrrrr', ['用途', '有效行数', '$>0$ 正例', '$>5$ 正例', '$>25$ 正例'], ['Purpose', 'Rows', '$>0$ positives', '$>5$ positives', '$>25$ positives'], data)
-    w.paragraph('训练与验证', '所有模型及预处理均使用 2017--2022 年全部 34,542,285 条有效训练记录。2023 年上半年拟合概率校准函数，下半年选择模型及概率判别阈值；2024 年用于测试。标签窗口不得跨上述时间边界。校准、选择和测试保留自然类别分布。',
+    w.paragraph('训练与验证', '所有基础分类器与预处理均使用 2017--2022 年全部 34,542,285 条有效训练记录。2023 年上半年拟合概率校准函数，下半年选择模型及概率判别阈值；2024 年用于测试。标签窗口不得跨上述时间边界。校准、选择和测试保留自然类别分布。',
                 'Training and validation', 'All base classifiers and preprocessing use all 34,542,285 eligible 2017--2022 training records. Fit calibration on 2023 H1, select models and decision cutoffs on H2, and test on 2024. Label windows cannot cross these boundaries. Calibration, selection and test preserve natural class proportions.')
     w.section('5. 从 Task 1 到特征工程', '5. From Task 1 to feature engineering')
     w.line(r'\begingroup\small')
@@ -100,8 +100,8 @@ def methods(w, prepared, baseline):
     w.paragraph('时间编码', '令 $h$ 为当地小时（包含分钟的小数部分），$m$ 为月份。小时和月份使用下列周期编码，并将两组编码的四个乘积作为交互项，共形成八个特征。这样 23:00 与 00:00、12 月与 1 月在特征空间中保持接近。',
                 'Cyclic time encoding', 'Let $h$ be local hour including fractional minutes and $m$ the month. Use the cyclic encodings below and their four pairwise products, giving eight features. Adjacent 23:00/00:00 and December/January stay close in feature space.')
     w.line(r'\[h_{\sin}=\sin(2\pi h/24),\quad h_{\cos}=\cos(2\pi h/24),\qquad m_{\sin}=\sin[2\pi(m-1)/12],\quad m_{\cos}=\cos[2\pi(m-1)/12].\]')
-    w.paragraph('输入处理', '缺失值填补、缺失标志和站点类别词表仅基于完整训练期拟合。线性模型对站点进行 one-hot 编码，树模型使用类别索引；常量特征排除。Logistic 与 SVM 使用特征标准化。通过九个 Logistic 模型比较日历与站点、加入本站历史、再加入邻站历史三组特征。',
-                'Input processing', 'Fit imputation, missingness indicators and station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.')
+    w.paragraph('输入处理', '缺失值采用训练期均值填补；缺失标志的筛选和站点类别词表也仅使用完整训练期。线性模型对站点进行 one-hot 编码，树模型使用类别索引；常量特征排除。Logistic 与 SVM 使用特征标准化。通过九个 Logistic 模型比较日历与站点、加入本站历史、再加入邻站历史三组特征。',
+                'Input processing', 'Impute missing values using training-period means; select missingness indicators and fit the station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.')
     if baseline:
         config = prepared['config']
         capped = sum(m['iteration_cap_reached'] for g in baseline['results'].values() for m in g['models'].values())
@@ -127,10 +127,10 @@ def methods(w, prepared, baseline):
     w.section('6. 模型、不平衡处理与概率校准', '6. Models, imbalance and calibration')
     rows=[(['L2 Logistic（MLlib）', r'$\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$'], ['L2 logistic (MLlib)', r'$\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$']),
           (['Linear SVM（MLlib）', r'$\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$'], ['Linear SVM (MLlib)', r'$\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$']),
-          (['XGBoost（Spark 接口）', r'80 棵树，深度 4，学习率 0.1，64 bins，子节点权重 20；$L_2=1$'], ['XGBoost (Spark interface)', r'80 trees, depth 4, learning rate 0.1, 64 bins, child weight 20; $L_2=1$'])]
+          (['XGBoost（Spark 接口）', r'80 棵树，深度 4，学习率 0.1，64 bins，最小子节点权重 20；$L_2=1$'], ['XGBoost (Spark interface)', r'80 trees, depth 4, learning rate 0.1, 64 bins, minimum child weight 20; $L_2=1$'])]
     w.table('p{6cm}p{17cm}', ['模型', '参数'], ['Model', 'Parameters'], rows)
-    w.paragraph('训练策略', r'比较自然分布、类别加权和受约束 SMOTE 三种策略。类别权重为 $w_+=N/(2P)$、$w_-=N/[2(N-P)]$。SMOTE 目标正例占比为 20\%，正例总数最多为原始正例的 10 倍。每种策略均保留全部真实训练记录；合成观测仅添加到训练集。',
-                'Training policies', r'Compare natural distribution, balanced weighting and constrained SMOTE. Weights are $w_+=N/(2P)$ and $w_-=N/[2(N-P)]$. SMOTE targets 20\% positives and caps their total at ten times the original count. Every policy retains all real training observations; synthetic rows enter training only.')
+    w.paragraph('训练策略', r'比较自然分布、类别加权和受约束 SMOTE 三种策略。令 $N$ 为真实训练记录总数，$P$ 为相应目标的正例数，类别权重为 $w_+=N/(2P)$、$w_-=N/[2(N-P)]$。SMOTE 目标正例占比为 20\%，正例总数最多为原始正例的 10 倍。每种策略均保留全部真实训练记录；合成观测仅添加到训练集。',
+                'Training policies', r'Compare natural distribution, balanced weighting and constrained SMOTE. Let $N$ be the number of real training records and $P$ the target-specific positive count. Weights are $w_+=N/(2P)$ and $w_-=N/[2(N-P)]$. SMOTE targets 20\% positives and caps their total at ten times the original count. Every policy retains all real training observations; synthetic rows enter training only.')
     w.paragraph('SMOTE 构造', '所有训练正例均可作为合成来源，按站点依次处理以控制内存。只在同站点、相同缺失模式、离散状态及雨量零值模式下检索最多五个近邻。对 16 个连续雨量特征用同一个系数插值，时间编码和其他离散信息保持原值；无合适近邻时复制原样本。',
                 'SMOTE construction', 'All training positives are available as donors, processed sequentially by station to bound memory. Search up to five neighbours with identical station, missingness, discrete profile and rain-zero pattern. Interpolate 16 continuous rain features with one coefficient, preserving calendar and discrete information; copy isolated donors.')
     w.paragraph('概率校准', r'利用 2023 年上半年观测拟合 Platt 函数 $\hat p=1/[1+\exp(-(az+b))]$，其中 $z$ 为基础模型分数，约束 $a\geq0$。该函数把 SVM 分数转换成概率，并调整类别加权或重采样后的概率尺度。若某组预测概率约为 10\%，理想情况下该组实际正例比例也应接近 10\%。',
@@ -222,7 +222,7 @@ def results(w, summary, benchmark):
     w.paragraph('概率质量', '三个目标的平均预测概率为 '+forecasts_cn+'，实际发生比例为 '+observed_cn+r'。0 mm 与 5 mm 目标整体略高估风险，25 mm 目标整体低估风险。图中每个点汇总一组相近概率的预测，灰色虚线 $y=x$ 表示预测概率与实际比例一致。', 'Probability quality', 'Mean forecast probabilities are '+forecasts_cn.replace('、', ', ')+', versus observed frequencies of '+observed_cn.replace('、', ', ')+r'. Overall, the 0 and 5 mm targets slightly overestimate risk, while the 25 mm target underestimates it. Each point aggregates similar forecasts; the dashed $y=x$ line represents agreement between forecast and observed frequency.')
     before = test_best['0']['uncalibrated_probability_quality']['brier']
     after = test_best['0']['brier']
-    w.paragraph('校准效果', f'类别加权 XGBoost 在 5 mm 与 25 mm 目标中经校准后的 Brier score 显著降低，说明自然分布校准集有助于纠正加权训练造成的概率偏移。0 mm 目标的 Brier score 则由 {before:.7f} 变为 {after:.7f}，校准未改善该目标的测试概率误差。', 'Calibration effect', f'Calibration substantially reduces Brier scores for the class-weighted XGBoost models at 5 and 25 mm, correcting probability shifts induced by weighting. For 0 mm, Brier changes from {before:.7f} to {after:.7f}; calibration does not improve test probability error for this target.')
+    w.paragraph('校准效果', f'类别加权 XGBoost 在 5 mm 与 25 mm 目标中经校准后的 Brier score 明显降低，说明自然分布校准集有助于纠正加权训练造成的概率偏移。0 mm 目标的 Brier score 则由 {before:.7f} 变为 {after:.7f}，校准未改善该目标的测试概率误差。', 'Calibration effect', f'Calibration reduces Brier scores for the class-weighted XGBoost models at 5 and 25 mm, correcting probability shifts induced by weighting. For 0 mm, Brier changes from {before:.7f} to {after:.7f}; calibration does not improve test probability error for this target.')
     last=high[2]
     w.paragraph('稀有事件校准', f"25 mm 目标的最高平均预测概率组包含 {last['n']:,} 个窗口，平均预测概率为 {last['mean_probability']*100:.3f}\\%，实际超越比例为 {last['observed_frequency']*100:.3f}\\%。该组实际发生比例高于预测概率，表明较高风险窗口中的强降雨概率仍被低估。", 'Rare-event calibration', f"For 25 mm, the highest-mean-probability group contains {last['n']:,} windows: mean forecast {last['mean_probability']*100:.3f}\\% versus observed frequency {last['observed_frequency']*100:.3f}\\%. The observed frequency exceeds the forecast, indicating underestimated heavy-rain probability in the higher-risk windows.")
     w.section('9. 分类指标与补充分析', '9. Classification metrics and further analysis')

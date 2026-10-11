@@ -597,7 +597,7 @@ Short-term persistence & Latest reading and 5/10/15/30/60-minute lags & 15/30/60
 \textbf{Cyclic time encoding.} Let $h$ be local hour including fractional minutes and $m$ the month. Use the cyclic encodings below and their four pairwise products, giving eight features. Adjacent 23:00/00:00 and December/January stay close in feature space.
 
 \[h_{\sin}=\sin(2\pi h/24),\quad h_{\cos}=\cos(2\pi h/24),\qquad m_{\sin}=\sin[2\pi(m-1)/12],\quad m_{\cos}=\cos[2\pi(m-1)/12].\]
-\textbf{Input processing.} Fit imputation, missingness indicators and station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.
+\textbf{Input processing.} Impute missing values using training-period means; select missingness indicators and fit the station vocabulary on the complete training period only. Use one-hot station encoding for linear models and a categorical index for trees; exclude constant features. Logistic and SVM standardize features. Nine logistic models compare calendar/station, added own history, and added neighbour history.
 
 \textbf{Feature comparison settings.} The nine ablation classifiers use L2 parameter 0.001, at most 80 iterations and tolerance $10^{-6}$. 0 reach this iteration cap. Logistic and SVM in the main algorithm comparison allow 100 iterations.
 
@@ -618,10 +618,10 @@ Add neighbours & 0.56134 & 0.17982 & 0.01713\\
 Model & Parameters\\\midrule
 L2 logistic (MLlib) & $\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$\\
 Linear SVM (MLlib) & $\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$\\
-XGBoost (Spark interface) & 80 trees, depth 4, learning rate 0.1, 64 bins, child weight 20; $L_2=1$\\
+XGBoost (Spark interface) & 80 trees, depth 4, learning rate 0.1, 64 bins, minimum child weight 20; $L_2=1$\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Training policies.} Compare natural distribution, balanced weighting and constrained SMOTE. Weights are $w_+=N/(2P)$ and $w_-=N/[2(N-P)]$. SMOTE targets 20\% positives and caps their total at ten times the original count. Every policy retains all real training observations; synthetic rows enter training only.
+\textbf{Training policies.} Compare natural distribution, balanced weighting and constrained SMOTE. Let $N$ be the number of real training records and $P$ the target-specific positive count. Weights are $w_+=N/(2P)$ and $w_-=N/[2(N-P)]$. SMOTE targets 20\% positives and caps their total at ten times the original count. Every policy retains all real training observations; synthetic rows enter training only.
 
 \textbf{SMOTE construction.} All training positives are available as donors, processed sequentially by station to bound memory. Search up to five neighbours with identical station, missingness, discrete profile and rain-zero pattern. Interpolate 16 continuous rain features with one coefficient, preserving calendar and discrete information; copy isolated donors.
 
@@ -762,7 +762,7 @@ Threshold mm & Final model & Data & ROC-AUC & PR-AUC & Brier\\\midrule
 \end{axis}
 \end{tikzpicture}\end{center}
 
-\textbf{Evaluation scope.} The columns show natural-distribution XGBoost, class-weighted XGBoost, class-weighted XGBoost, selected using 2023 H2 validation. All models fit the complete 34,542,285 eligible training records from 2017--2022. Curves and AUCs use all 6,374,476 eligible 2024 test windows. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies precision to 0--0.15.
+\textbf{Evaluation scope.} Columns correspond to the 0, 5 and 25 mm rainfall thresholds, with a separately fitted classifier per target: 0 mm: natural-distribution XGBoost; 5 mm: class-weighted XGBoost; 25 mm: class-weighted XGBoost. Models are selected using 2023 H2 validation. All models fit the complete 34,542,285 eligible training records from 2017--2022. Curves and AUCs use all 6,374,476 eligible 2024 test windows. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies precision to 0--0.15.
 
 \textbf{Ranking performance.} ROC-AUCs are 0.87908, 0.87952, 0.90435, and PR-AUCs are 0.60809, 0.21839, 0.02089. Higher rainfall thresholds describe rarer events. PR curves assess whether models achieve high precision and recall together.
 \clearpage\section*{Figure 10: reliability and probability quality}
@@ -785,7 +785,7 @@ Threshold mm & Final model & Data & ROC-AUC & PR-AUC & Brier\\\midrule
 \end{tikzpicture}\end{center}\vspace{10mm}
 \textbf{Probability quality.} Mean forecast probabilities are 6.9640\%, 0.8596\%, 0.0422\%, versus observed frequencies of 6.3602\%, 0.8345\%, 0.0552\%. Overall, the 0 and 5 mm targets slightly overestimate risk, while the 25 mm target underestimates it. Each point aggregates similar forecasts; the dashed $y=x$ line represents agreement between forecast and observed frequency.
 
-\textbf{Calibration effect.} Calibration substantially reduces Brier scores for the class-weighted XGBoost models at 5 and 25 mm, correcting probability shifts induced by weighting. For 0 mm, Brier changes from 0.0363148 to 0.0364909; calibration does not improve test probability error for this target.
+\textbf{Calibration effect.} Calibration reduces Brier scores for the class-weighted XGBoost models at 5 and 25 mm, correcting probability shifts induced by weighting. For 0 mm, Brier changes from 0.0363148 to 0.0364909; calibration does not improve test probability error for this target.
 
 \textbf{Rare-event calibration.} For 25 mm, the highest-mean-probability group contains 164,015 windows: mean forecast 0.898\% versus observed frequency 1.191\%. The observed frequency exceeds the forecast, indicating underestimated heavy-rain probability in the higher-risk windows.
 

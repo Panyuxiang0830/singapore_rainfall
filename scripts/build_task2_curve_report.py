@@ -48,16 +48,16 @@ def make_section(values):
     policies_cn = {'natural': '自然分布', 'balanced': '类别加权', 'smote': 'SMOTE'}
     policies_en = {'natural': 'natural-distribution', 'balanced': 'class-weighted', 'smote': 'SMOTE'}
     algorithms = {'logistic': 'Logistic', 'svm': 'SVM', 'xgb': 'XGBoost'}
-    models_cn = '、'.join(policies_cn[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
-    models_en = ', '.join(policies_en[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
-    scope = r'\textbf{评价对象。}三列依次为'+models_cn+r'，由 2023 年下半年验证集选定。所有模型使用 2017--2022 年全部 34,542,285 条有效训练记录。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。25 mm 的 PR 面板将纵轴放大至 0--0.15，以展示低 Precision 区间。'
+    models_cn = '；'.join(f"{v['threshold_mm']} mm："+policies_cn[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
+    models_en = '; '.join(f"{v['threshold_mm']} mm: "+policies_en[v['policy']]+' '+algorithms[v['algorithm']] for v in values)
+    scope = r'\textbf{评价对象。}三列按 0、5、25 mm 雨量阈值排列，分别对应独立训练的分类器：'+models_cn+r'。这些模型由 2023 年下半年验证集选定。所有模型使用 2017--2022 年全部 34,542,285 条有效训练记录。曲线及 AUC 使用完整 2024 年测试集的 6,374,476 个窗口。ROC 图中虚线为 $y=x$，PR 图中虚线为测试集正例比例。25 mm 的 PR 面板将纵轴放大至 0--0.15，以展示低 Precision 区间。'
     roc = '、'.join(f"{v['roc_auc']:.5f}" for v in values)
     pr = '、'.join(f"{v['pr_auc']:.5f}" for v in values)
     conclusion = r'\textbf{排序表现。}三个目标的 ROC-AUC 分别为 '+roc+'，PR-AUC 分别为 '+pr+'。较高雨量阈值对应的事件更稀少，需结合 PR 曲线评价模型能否同时取得较高 Precision 和 Recall。'
     reviewed = {
         HEADER: r'\clearpage\section*{Figure 9: ROC and PR curves of the final selected models}',
         CALIBRATION: r'\clearpage\section*{Figure 10: reliability curves and probability quality}',
-        scope: r'\textbf{Evaluation scope.} The columns show '+models_en+r', selected using 2023 H2 validation. All models fit the complete 34,542,285 eligible training records from 2017--2022. Curves and AUCs use all 6,374,476 eligible 2024 test windows. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies precision to 0--0.15.',
+        scope: r'\textbf{Evaluation scope.} Columns correspond to the 0, 5 and 25 mm rainfall thresholds, with a separately fitted classifier per target: '+models_en+r'. Models are selected using 2023 H2 validation. All models fit the complete 34,542,285 eligible training records from 2017--2022. Curves and AUCs use all 6,374,476 eligible 2024 test windows. Dashed references are $y=x$ for ROC and test prevalence for PR. The 25 mm PR panel magnifies precision to 0--0.15.',
         conclusion: r'\textbf{Ranking performance.} ROC-AUCs are '+roc.replace('、', ', ')+', and PR-AUCs are '+pr.replace('、', ', ')+'. Higher rainfall thresholds describe rarer events. PR curves assess whether models achieve high precision and recall together.'}
     body += ['', scope, '', conclusion, '']
     return '\n'.join(body), reviewed
