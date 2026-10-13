@@ -61,7 +61,13 @@ Validation metric & Tuned model & Additional spatial interactions\\\midrule
 '''
 
 
+THRESHOLD_CN = '\\textbf{阈值选择。}本项目预设 0、5 和 25 mm 三个雨量阈值，分别考察未来半小时是否出现降雨、是否超过较低的正雨量门槛，以及是否发生较大累计雨量事件。选择不同门槛旨在比较事件发生频率降低时，模型的排序能力和概率质量如何变化。这些阈值是本项目的实验设置，并非官方降雨等级。每个阈值分别训练和选择分类器，当前预测接口仅支持这三个值，不支持任意连续雨量阈值。'
+THRESHOLD_EN = '\\textbf{Threshold choices.} We preset rainfall thresholds of 0, 5 and 25 mm to examine any rainfall, exceedance of a lower positive accumulation threshold, and a larger accumulation event over the next 30 minutes. These targets allow comparison of model ranking and probability quality as events become rarer. The thresholds are experimental choices, not official rainfall categories. A classifier is trained and selected separately for each threshold; the current interface supports only these three values rather than arbitrary continuous thresholds.'
+
+
 def apply(paragraphs, hashes, labels):
+    paragraphs[r'\textbf{阈值选择。}'] = THRESHOLD_EN
+    hashes[r'\textbf{阈值选择。}'] = hashlib.sha256(THRESHOLD_CN.encode()).hexdigest()
     paragraphs[r'\textbf{预测结果。}'] = SUMMARY_EN
     hashes[r'\textbf{预测结果。}'] = hashlib.sha256(SUMMARY_CN.encode()).hexdigest()
     labels['2026 年 10 月 13 日 / 实证分析与预测'] = '13 October 2026 / Empirical analysis and prediction'

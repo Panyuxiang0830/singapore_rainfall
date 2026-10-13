@@ -570,6 +570,8 @@ Figure 6 middle/right: exceedance and persistence & Valid 2024 observations from
 \clearpage\section*{4. Task 2: target and chronological splits}
 \textbf{Prediction target.} For station $s$, time $t$ and rainfall threshold $q$, estimate the probability that rainfall in the next 30 minutes strictly exceeds $q$. Use $q\in\{0,5,25\}$ mm and one classifier per target, with one feature row and three label columns per station/time.
 
+\textbf{Threshold choices.} We preset rainfall thresholds of 0, 5 and 25 mm to examine any rainfall, exceedance of a lower positive accumulation threshold, and a larger accumulation event over the next 30 minutes. These targets allow comparison of model ranking and probability quality as events become rarer. The thresholds are experimental choices, not official rainfall categories. A classifier is trained and selected separately for each threshold; the current interface supports only these three values rather than arbitrary continuous thresholds.
+
 \[R_{s,t}^{30}=\sum_{k=1}^{6}r_{s,t+5k\,\mathrm{min}},\qquad y_{s,t}^{(q)}=\mathbf{1}(R_{s,t}^{30}>q),\qquad \hat p_q=P(y^{(q)}=1\mid x_{s,t}).\]
 \textbf{Label construction.} Treat timestamps as five-minute interval ends. Sum six valid intervals in $(t,t+30\mathrm{min}]$ and round to nine decimal places before comparison. Exclude the current interval and reject windows missing any future interval. Equality with the threshold is negative.
 
