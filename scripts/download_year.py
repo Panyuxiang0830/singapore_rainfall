@@ -53,25 +53,35 @@ def main():
         print(f'{args.year}: download preparation {payload.get("data", {}).get("status")}', flush=True)
     if not link:
         raise RuntimeError('Download preparation did not return a URL')
-    digest = hashlib.sha256()
-    count = 0
-    started = time.monotonic()
     partial = dest.with_suffix('.gz.part')
-    with session.get(link, stream=True, timeout=(15, 120)) as response:
-        response.raise_for_status()
-        with gzip.open(partial, 'wb', compresslevel=1) as out:
-            for chunk in response.iter_content(1024 * 1024):
-                out.write(chunk)
-                digest.update(chunk)
-                count += len(chunk)
-                delay = count / (args.mbps * 1024**2) - (time.monotonic() - started)
-                if delay > 0:
-                    time.sleep(delay)
-                if count % (64 * 1024**2) < len(chunk):
-                    free = shutil.disk_usage(ROOT).free
-                    if free < 5 * 1024**3:
-                        raise RuntimeError('Stopping download to preserve disk reserve')
-                    print(f'{args.year}: streamed {count / 1024**2:.0f} MiB; free {free / 1024**3:.2f} GiB', flush=True)
+    for attempt in range(1, 4):
+        # Restart only this incomplete annual file; completed years stay intact.
+        digest = hashlib.sha256()
+        count = 0
+        started = time.monotonic()
+        try:
+            with session.get(link, stream=True, timeout=(30, 300)) as response:
+                response.raise_for_status()
+                with gzip.open(partial, 'wb', compresslevel=1) as out:
+                    for chunk in response.iter_content(1024 * 1024):
+                        out.write(chunk)
+                        digest.update(chunk)
+                        count += len(chunk)
+                        delay = count / (args.mbps * 1024**2) - (time.monotonic() - started)
+                        if delay > 0:
+                            time.sleep(delay)
+                        if count % (64 * 1024**2) < len(chunk):
+                            free = shutil.disk_usage(ROOT).free
+                            if free < 5 * 1024**3:
+                                raise RuntimeError('Stopping download to preserve disk reserve')
+                            print(f'{args.year}: streamed {count / 1024**2:.0f} MiB; free {free / 1024**3:.2f} GiB', flush=True)
+            break
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError,
+                requests.exceptions.ChunkedEncodingError) as error:
+            print(f'{args.year}: network interruption ({type(error).__name__}), attempt {attempt}/3', flush=True)
+            if attempt == 3:
+                raise
+            time.sleep(13 * attempt)
     partial.rename(dest)
     manifest.write_text(json.dumps({
         'year': args.year, 'dataset_id': dataset_id,

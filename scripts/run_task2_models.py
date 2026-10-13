@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--predict-time')
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25])
     parser.add_argument('--predict-algorithm', choices=ALGORITHMS)
+    parser.add_argument('--original-model', action='store_true')
     args = parser.parse_args()
     work = ROOT/'work/task2/model_comparison_full'
     work.mkdir(parents=True, exist_ok=True)
@@ -48,6 +49,8 @@ def main():
                    '--threshold', str(args.threshold)]
         if args.predict_algorithm:
             command += ['--algorithm', args.predict_algorithm]
+        if args.original_model:
+            command += ['--original-model']
         run(command, env)
         return
     base = [sys.executable, '-u', 'scripts/task2_models.py']

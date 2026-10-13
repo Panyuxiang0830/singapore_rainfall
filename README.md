@@ -147,9 +147,9 @@ python scripts/run_task2_models.py \
   --predict-station S07 --predict-time '2024-03-01T12:00:00+08:00' --threshold 5
 ```
 
-The CLI uses the validation-selected algorithm/policy for the supplied threshold.
+The CLI uses the tuned calibrated XGBoost pipeline at 5 mm and the original validation-selected algorithm/policy at 0 and 25 mm. Add `--original-model` to reproduce the original comparison at 5 mm.
 Use `--predict-algorithm logistic|svm|xgb` to choose an algorithm's validation-selected
-policy. Saved pipelines include fitted preprocessing and probability calibration.
+policy. Saved pipelines include fitted preprocessing and probability calibration. The output includes `model_version` to distinguish the selected pipeline.
 An archived prediction requires the corresponding prepared causal feature row.
 The three supported rainfall thresholds are 0, 5 and 25 mm.
 
@@ -207,3 +207,7 @@ The original annual files, cached vectors, scores, logs and intermediate tables
 are working data and do not belong in Git or the submission. The reports list
 the three group members; student IDs are omitted as explicitly requested.
 The assignment deadline is 18 October 2026.
+
+## Additional 5 mm tuning experiment
+
+See `TUNING_README.md`, `scripts/tune_rainfall_xgb.py` and `scripts/evaluate_tuned_2024.py`. New calibrated and uncalibrated pipelines and experiment metadata are retained in `models/tuned_xgb_gt5/`. Full 2024 test PR-AUC is 0.22640465 and Brier is 0.00716085. Bilingual supplementary report text is in `reports/Tuning_Addendum_CN.md` and `reports/Tuning_Addendum_EN.md`; The bilingual LaTeX reports include the additional experiment, and the prediction CLI now selects this model by default at 5 mm. The spatial-interaction extension was rejected using 2023 H2 validation; it is not a prediction default.

@@ -37,7 +37,8 @@ def main():
     })
     env['PATH'] = env['JAVA_HOME'] + '/bin:' + env['PATH']
     Path(env['TMPDIR']).mkdir(parents=True, exist_ok=True)
-    print('TASK2_RUN_START', ROOT, 'affinity', sorted(os.sched_getaffinity(0)), flush=True)
+    affinity = sorted(os.sched_getaffinity(0)) if hasattr(os, 'sched_getaffinity') else None
+    print('TASK2_RUN_START', ROOT, 'affinity', affinity, flush=True)
     if args.task1_check:
         run([sys.executable, '-u', 'scripts/task2_labels.py', '--task1-check'], env)
         return
