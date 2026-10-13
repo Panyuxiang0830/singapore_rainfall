@@ -3,13 +3,14 @@
 
 Copy to the repository's scripts/ directory. Requires existing monthly feature
 Parquet, Python 3.11, Spark 3.5.8 and XGBoost 3.2.0. All eligible rows are used.
-Default: fit 2017-2021, rank candidates on 2022. --final-fit refits the winner
+Default: search the full 16-combination grid, fit 2017-2021, rank candidates on 2022. --final-fit refits the winner
 on 2017-2022, calibrates on 2023 H1, and evaluates on 2023 H2. Neither stage
 reads 2024. Each invocation creates a new directory; old models are untouched.
 """
 import argparse
 import csv
 import json
+from itertools import product
 import os
 import sys
 import time
@@ -48,6 +49,18 @@ def candidates():
     ]
 
 
+GRID = dict(n_estimators=[100, 200], max_depth=[4, 6],
+            learning_rate=[.05, .1], reg_lambda=[1., 5.])
+
+
+def grid_candidates():
+    """Full Cartesian product; remaining hyperparameters are held fixed."""
+    keys = list(GRID)
+    return [(f'grid_{i:02d}', dict(zip(keys, values), max_bin=128,
+                                 min_child_weight=20, reg_alpha=0.))
+            for i, values in enumerate(product(*(GRID[k] for k in keys)), 1)]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, parents=[boot])
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25], default=5)
@@ -58,20 +71,23 @@ def main():
                         help='First N configurations, always including original parameters')
     parser.add_argument('--final-fit', action='store_true')
     parser.add_argument('--feature-set', choices=['baseline', 'spatial'], default='baseline')
-    parser.add_argument('--configuration', choices=['search', 'tuned'], default='search',
-                        help='tuned fixes the prior selected depth6 parameters for a feature ablation')
+    parser.add_argument('--configuration', choices=['grid', 'search', 'tuned'], default='grid',
+                        help='grid: all 16 combinations (default); search: legacy six presets; tuned: fixed prior winner')
     parser.add_argument('--output-root', type=Path)
     parser.add_argument('--plan-only', action='store_true', help='Print plan without importing Spark')
     args = parser.parse_args()
     if not 1 <= args.cpu_threads <= 20 or args.driver_heap_gib < 1:
         parser.error('Use 1-20 CPU threads and a positive driver heap')
-    configurations = candidates()[:args.candidates] if args.configuration == 'search' else [candidates()[3]]
+    configurations = (grid_candidates() if args.configuration == 'grid' else
+                      candidates()[:args.candidates] if args.configuration == 'search' else [candidates()[3]])
     plan = dict(threshold_mm=args.threshold, policy=args.policy,
                 tuning_train_years=list(range(2017, 2022)), tuning_validation_year=2022,
                 final_train_years=list(range(2017, 2023)), calibration='2023 H1',
                 final_validation='2023 H2', test_2024_read=False, subsampling=False,
                 selection='2022 Spark PR-AUC, Brier tie-breaker; no early stopping',
                 feature_set=args.feature_set, configuration=args.configuration,
+                grid=GRID if args.configuration == 'grid' else None,
+                candidate_count=len(configurations),
                 candidates=[dict(name=n, **p) for n, p in configurations])
     if args.plan_only:
         print(json.dumps(plan, indent=2)); return

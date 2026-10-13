@@ -1,3 +1,67 @@
+# Full grid search on the Google Cloud VM
+
+The default `--configuration grid` evaluates the complete Cartesian product:
+
+| Parameter | Values |
+|---|---|
+| n_estimators | 100, 200 |
+| max_depth | 4, 6 |
+| learning_rate | 0.05, 0.1 |
+| reg_lambda | 1, 5 |
+
+This is 16 fits per rainfall threshold, 48 candidate fits for three thresholds,
+plus three final refits and calibration. Fixed: max_bin=128,
+min_child_weight=20, reg_alpha=0, subsample=1, colsample_bytree=1.
+This grid tunes XGBoost hyperparameters; it does not select the algorithm,
+feature set or weighting policy. Use baseline features, natural weighting for
+0 mm and balanced weighting for 5/25 mm, as in the original selected models.
+Run targets sequentially, with no other training job on the VM.
+
+On the VM, after pulling this commit:
+
+```bash
+cd ~/singapore_rainfall
+git pull --ff-only origin main
+source .venv/bin/activate
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export PYSPARK_PYTHON="$PWD/.venv/bin/python"
+export SPARK_LOCAL_IP=127.0.0.1
+python scripts/tune_rainfall_xgb.py --threshold 0 --policy natural --plan-only
+```
+
+Create/attach an available tmux session, then run:
+
+```bash
+tmux new -s rainfall-grid
+```
+
+Inside tmux:
+
+```bash
+bash scripts/run_rainfall_grid.sh
+```
+
+The runner runs 0, 5, 25 mm sequentially with 8 CPU threads, 6 GiB driver heap,
+`--final-fit`, and writes each run into `work/task2/xgb_grid/gt<q>/<run-id>/`.
+Logs are in `work/task2/xgb_grid/logs/`. It stops on any failed target.
+Read the last log lines and completed results before restarting: rerunning
+creates fresh directories and does not resume completed candidates.
+Each directory contains the complete grid plan, per-candidate metrics,
+winner, final pipelines and 2023 H2 validation. Compare against the old
+model on validation before replacing the prediction defaults.
+No 2024 test or report result is updated automatically. The previously
+reported six-configuration experiments remain historical results; do not
+claim grid-search results until these new runs complete.
+
+Selection uses 2022 Spark PR-AUC, with Brier as tie-breaker. Temporal splits
+and full training rows are unchanged. This is a chronological holdout grid
+search implemented around SparkXGBClassifier, not random-fold CrossValidator.
+2023 H1 calibrates probabilities; 2023 H2 selects the final probability pipeline.
+2024 remains outside tuning. Since its results have already been inspected,
+subsequent 2024 comparisons should be disclosed as follow-up experiments.
+
+---
+
 # Rainfall XGBoost tuning
 
 This is a new experiment script, not an already trained or proven better model.
@@ -17,14 +81,14 @@ python scripts/tune_rainfall_xgb.py --plan-only
 Tune six parameter configurations (no training subsampling):
 
 ```bash
-python scripts/tune_rainfall_xgb.py --threshold 5 --policy balanced \
+python scripts/tune_rainfall_xgb.py --configuration search --threshold 5 --policy balanced \
   --cpu-threads 2 --driver-heap-gib 2
 ```
 
 To use the original server's 20-CPU configuration and also produce final models:
 
 ```bash
-python scripts/tune_rainfall_xgb.py --threshold 5 --policy balanced \
+python scripts/tune_rainfall_xgb.py --configuration search --threshold 5 --policy balanced \
   --cpu-threads 20 --driver-heap-gib 6 --final-fit
 ```
 
@@ -89,7 +153,7 @@ transform, so inference still requires only the original input columns.
 For a controlled feature comparison, keep the prior selected parameters fixed:
 
 ```bash
-python scripts/tune_rainfall_xgb.py --threshold 5 --policy balanced \
+python scripts/tune_rainfall_xgb.py --configuration search --threshold 5 --policy balanced \
   --feature-set spatial --configuration tuned \
   --cpu-threads 8 --driver-heap-gib 6 --final-fit
 ```
