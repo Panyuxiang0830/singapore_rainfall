@@ -207,3 +207,7 @@ The original annual files, cached vectors, scores, logs and intermediate tables
 are working data and do not belong in Git or the submission. The reports list
 the three group members; student IDs are omitted as explicitly requested.
 The assignment deadline is 18 October 2026.
+
+## Additional 5 mm tuning experiment
+
+See `TUNING_README.md`, `scripts/tune_rainfall_xgb.py` and `scripts/evaluate_tuned_2024.py`. New calibrated and uncalibrated pipelines and experiment metadata are retained in `models/tuned_xgb_gt5/`. Full 2024 test PR-AUC is 0.22640465 and Brier is 0.00716085. Bilingual supplementary report text is in `reports/Tuning_Addendum_CN.md` and `reports/Tuning_Addendum_EN.md`; existing PDFs and the original prediction CLI have not yet been updated to use this model.
