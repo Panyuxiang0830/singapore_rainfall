@@ -75,3 +75,27 @@ Validation performed for this deliverable: Python syntax and no-dependency
 `--plan-only` CLI execution. Full Spark/XGBoost training has not been run here;
 no performance improvement is claimed. AI assistance: OpenAI Codex wrote this
 new script and instructions; group members should review and record actual runs.
+
+## Next experiment: spatial interactions
+
+`rainfall_spatial_features.py` adds eight interactions derived from the existing
+causal feature columns: neighbour/own rain gaps, neighbour peak/mean gap,
+neighbour wet fraction while the own station is dry, reading-age difference,
+own recent-rain share and log neighbour rainfall. Null inputs are preserved.
+These are spatial contrasts, not measurements of storm movement. No raw data
+or feature Parquet rebuild is needed. The saved pipeline includes the interaction
+transform, so inference still requires only the original input columns.
+
+For a controlled feature comparison, keep the prior selected parameters fixed:
+
+```bash
+python scripts/tune_rainfall_xgb.py --threshold 5 --policy balanced \
+  --feature-set spatial --configuration tuned \
+  --cpu-threads 8 --driver-heap-gib 6 --final-fit
+```
+
+This fits one development candidate, then optionally the final model. Compare
+2022 PR-AUC against the prior depth6 configuration (0.25048567) and use 2023 H2
+for subsequent validation. Do not immediately test on 2024 to select features.
+Do not replace the existing selected model until validation has been reviewed.
+Both this module and the updated tuning script must be uploaded to the VM.

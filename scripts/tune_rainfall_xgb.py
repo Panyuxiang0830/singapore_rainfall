@@ -57,17 +57,22 @@ def main():
     parser.add_argument('--candidates', type=int, choices=range(1, 7), default=6,
                         help='First N configurations, always including original parameters')
     parser.add_argument('--final-fit', action='store_true')
+    parser.add_argument('--feature-set', choices=['baseline', 'spatial'], default='baseline')
+    parser.add_argument('--configuration', choices=['search', 'tuned'], default='search',
+                        help='tuned fixes the prior selected depth6 parameters for a feature ablation')
     parser.add_argument('--output-root', type=Path)
     parser.add_argument('--plan-only', action='store_true', help='Print plan without importing Spark')
     args = parser.parse_args()
     if not 1 <= args.cpu_threads <= 20 or args.driver_heap_gib < 1:
         parser.error('Use 1-20 CPU threads and a positive driver heap')
+    configurations = candidates()[:args.candidates] if args.configuration == 'search' else [candidates()[3]]
     plan = dict(threshold_mm=args.threshold, policy=args.policy,
                 tuning_train_years=list(range(2017, 2022)), tuning_validation_year=2022,
                 final_train_years=list(range(2017, 2023)), calibration='2023 H1',
                 final_validation='2023 H2', test_2024_read=False, subsampling=False,
                 selection='2022 Spark PR-AUC, Brier tie-breaker; no early stopping',
-                candidates=[dict(name=n, **p) for n, p in candidates()[:args.candidates]])
+                feature_set=args.feature_set, configuration=args.configuration,
+                candidates=[dict(name=n, **p) for n, p in configurations])
     if args.plan_only:
         print(json.dumps(plan, indent=2)); return
     if not (ROOT / 'scripts/task2_features.py').exists():
@@ -92,11 +97,13 @@ def main():
     from xgboost.spark import SparkXGBClassifier
     from task2_features import NUMERIC_FEATURES, FEATURE_VERSION
     from task2_logistic import metrics
+    from rainfall_spatial_features import EXTRA_FEATURES, stage as spatial_stage, check as spatial_check
+    numeric_features = NUMERIC_FEATURES + (EXTRA_FEATURES if args.feature_set == 'spatial' else [])
 
     outroot = args.output_root or ROOT / 'work/task2/xgb_tuning'
     out = outroot / (datetime.now().strftime('%Y%m%d_%H%M%S') + f'_{os.getpid()}_gt{args.threshold}')
     out.mkdir(parents=True, exist_ok=False)
-    plan.update(feature_version=FEATURE_VERSION, numeric_features=NUMERIC_FEATURES,
+    plan.update(feature_version=FEATURE_VERSION, numeric_features=numeric_features,
                 cpu_threads=args.cpu_threads, driver_heap_gib=args.driver_heap_gib,
                 python=sys.version, spark=pyspark.__version__, xgboost=xgboost.__version__)
     save(out / 'plan.json', plan)
@@ -132,19 +139,21 @@ def main():
     def preprocessing(raw, destination):
         # Refit on this stage's training block: never reuse full-period preprocessing
         # for a 2022 validation experiment.
+        derived = spatial_stage() if args.feature_set == 'spatial' else None
+        statistics_frame = derived.transform(raw) if derived is not None else raw
         expr = []
-        for i, c in enumerate(NUMERIC_FEATURES):
+        for i, c in enumerate(numeric_features):
             expr += [F.count(c).alias(f'n{i}'), F.min(c).alias(f'lo{i}'), F.max(c).alias(f'hi{i}')]
-        stats = raw.agg(*expr).first().asDict()
-        active = [c for i, c in enumerate(NUMERIC_FEATURES)
+        stats = statistics_frame.agg(*expr).first().asDict()
+        active = [c for i, c in enumerate(numeric_features)
                   if stats[f'n{i}'] and stats[f'lo{i}'] != stats[f'hi{i}']]
         # Keep explicit missingness for every numeric feature, including constants.
         from pyspark.ml.feature import SQLTransformer
         statement = 'SELECT *, ' + ', '.join(
             f'CASE WHEN `{c}` IS NULL OR isnan(`{c}`) THEN 1.0 ELSE 0.0 END AS `{c}__missing`'
-            for c in NUMERIC_FEATURES) + ' FROM __THIS__'
-        columns = [c + '__filled' for c in active] + [c + '__missing' for c in NUMERIC_FEATURES] + ['station_index']
-        stages = [SQLTransformer(statement=statement)]
+            for c in numeric_features) + ' FROM __THIS__'
+        columns = [c + '__filled' for c in active] + [c + '__missing' for c in numeric_features] + ['station_index']
+        stages = ([derived] if derived is not None else []) + [SQLTransformer(statement=statement)]
         if active:
             stages.append(Imputer(strategy='mean', inputCols=active,
                                   outputCols=[c + '__filled' for c in active]))
@@ -175,6 +184,8 @@ def main():
         return metrics(scores, rate)
 
     try:
+        if args.feature_set == 'spatial':
+            spatial_check(spark)
         train = read(range(2017, 2022)).filter(F.col('slot_epoch') + 1800 < boundary(2022))
         valid = read([2022]).filter(F.col('slot_epoch') + 1800 < boundary(2023))
         n, p = counts(train)
@@ -182,7 +193,7 @@ def main():
         trainv, validv = vectors(front, train, 'tuning_train'), vectors(front, valid, 'tuning_valid')
         results = []
         best = None
-        for name, params in candidates()[:args.candidates]:
+        for name, params in configurations:
             print('FIT', name, params, flush=True)
             begin = time.monotonic()
             model = fit(trainv, params, dim, n, p)
@@ -227,7 +238,8 @@ def main():
             save(out / 'validation_2023H2.json', vm)
             chosen = 'final_calibrated' if vm['calibrated']['brier'] < vm['uncalibrated']['brier'] else 'final_uncalibrated'
             save(out / 'final_selection.json', dict(model=chosen, criterion='2023 H2 Brier',
-                 threshold_mm=args.threshold, params=best['params'], test_2024_read=False,
+                 threshold_mm=args.threshold, params=best['params'], feature_set=args.feature_set,
+                 test_2024_read=False,
                  inference='Supply station_id, slot_epoch and NUMERIC_FEATURES; no label needed'))
         print('DONE:', out, flush=True)
     finally:
