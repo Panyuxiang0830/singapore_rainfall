@@ -11,7 +11,7 @@
 \pagestyle{fancy}\fancyhf{}
 \fancyhead[L]{\small Singapore rainfall 2017--2024 / Tasks 1 and 2}
 \fancyhead[R]{\small Technical report (English)}
-\fancyfoot[L]{\footnotesize 11 October 2026 / Empirical analysis and prediction}
+\fancyfoot[L]{\footnotesize 13 October 2026 / Empirical analysis and prediction}
 \fancyfoot[R]{\footnotesize\thepage}
 \renewcommand{\headrulewidth}{.3pt}
 \renewcommand{\arraystretch}{1.15}
@@ -30,7 +30,7 @@
 
 \textbf{Main findings.} Of all valid five-minute observations, 97.08\% are dry. Eligible diurnal samples show the highest rain frequency at 16:00--17:00 Singapore time. Available-year monthly averages have the highest frequency in November and the lowest in July, with varying eligible years and stations. In the fixed panel, duration-normalized rainfall is lowest in 2019 and highest in 2021. Nearby stations generally have more strongly correlated daily rainfall; eight years alone do not establish long-term climate change.
 
-\textbf{Prediction findings.} Models use all 34,542,285 eligible 2017--2022 records for training, 2023 for probability calibration and selection, and 2024 for testing. XGBoost is selected for all three thresholds, with test PR-AUCs 0.60809, 0.21839, 0.02089. Weighting and SMOTE gains vary by algorithm and target; substantial room remains to improve 25 mm heavy-rain prediction.
+\textbf{Prediction findings.} Models use all 34,542,285 eligible 2017--2022 records for training, 2023 for calibration and selection, and 2024 for testing. The original comparison selected three XGBoost models. Subsequent 5 mm tuning increased test PR-AUC from 0.21839 to 0.22640 and reduced Brier from 0.0072009 to 0.0071609. The prediction interface uses this tuned 5 mm model and retains the original 0 and 25 mm models. Additional spatial interactions did not improve 2023 validation performance and were not adopted.
 
 \begin{center}\begin{tabular}{rrrrr}
 \toprule
@@ -808,7 +808,33 @@ Threshold mm & Real positives & Added rows & Augmented positives (\%) & Changed 
 
 \textbf{Spatial and temporal dependence.} Neighbouring stations can share a rainfall event and half-hour windows overlap. Event/day-grouped evaluation can assess stability across stations and events. Independent threshold classifiers also motivate future monotone cross-threshold probability constraints.
 
-\clearpage\section*{10. AI use and references}
+
+\clearpage\section*{10. Additional experiment: 5 mm tuning and prediction interface}
+\textbf{Design.} Candidates used all 27,434,009 eligible 2017--2021 records, with 2022 for tuning. Preprocessing was fitted only on the corresponding training block; future targets crossing split boundaries were purged. Six fixed configurations were ranked by PR-AUC, with Brier as a tie-breaker, without subsampling or early stopping. The selected configuration was refitted on all 34,542,285 eligible 2017--2022 records. Monotone Platt calibration used 2023 H1; probability-pipeline and cutoff selection used 2023 H2. The model was then frozen for 2024 evaluation.
+\textbf{Parameters.} Balanced XGBoost used 200 trees, depth 6, learning rate 0.05, 128 bins, minimum child weight 20, L2 regularisation 5 and L1 regularisation 0. The 2022 PR-AUC increased from 0.24617 for the original parameter configuration to 0.25049. The new procedure assigns missing indicators to every numeric feature, rather than selecting indicators as in the original procedure; gains cannot be attributed entirely to parameter tuning. Tables and curves in Sections 8--9 remain results of the original comparison experiment.
+\begin{center}\begin{tabular}{lrr}\toprule
+2024 test metric & Original comparison: 5 mm & Tuned final 5 mm model\\\midrule
+PR-AUC & 0.21839 & 0.22640\\
+ROC-AUC & 0.87952 & 0.87908\\
+Brier score & 0.0072009 & 0.0071609\\
+Precision & 0.29634 & 0.29402\\
+Recall & 0.33540 & 0.34657\\
+F1 & 0.31466 & 0.31814\\
+\bottomrule\end{tabular}\end{center}
+\textbf{Interpretation.} The test population contains 6,374,476 eligible windows, with 53,193 positives (0.83447\%). PR-AUC increased by approximately 3.7\% relatively and Brier decreased slightly, while ROC-AUC and precision declined slightly. Classification metrics use each procedure's validation-selected cutoff, not a common false-alarm rate. The new cutoff is 0.169824; mean predicted probability is 0.87725\%. Brier is below the constant training-prevalence baseline of 0.0082751. Event-block confidence intervals were not computed, so statistical significance is not established.
+\textbf{Environment.} Features constructed on the local Mac were uploaded to a Google Compute Engine e2-highmem-8 VM: 8 vCPUs, 64 GB configured RAM (approximately 62 GiB reported), 100 GB Balanced Persistent Disk and Ubuntu 22.04.5 LTS x86\_64. Software used Python 3.11, Java 17, Spark 3.5.8 and XGBoost 3.2.0. Spark ran in local[8] mode, with two XGBoost workers and four CPUs per task, a 6 GiB driver heap and no GPU. This describes the additional tuning, refitting, calibration and test experiment, not the original Task 1 or model-comparison runs.
+\clearpage\section*{10.1. Rejected spatial interactions and application limits}
+\textbf{Spatial ablation.} With the selected parameters fixed, eight interactions were derived from existing historical inputs: neighbour/own latest and half-hour rain gaps, neighbour peak/mean gap, neighbour wet fraction while the own station is dry, reading-age difference, own recent-15-minute rain share and log neighbour rainfall. Missing inputs remain missing; no future observations are used. These features do not measure wind direction or storm velocity.
+\begin{center}\begin{tabular}{lrr}\toprule
+Validation metric & Tuned model & Additional spatial interactions\\\midrule
+2022 PR-AUC & 0.250486 & 0.250632\\
+2023 H2 PR-AUC & 0.239991 & 0.238817\\
+2023 H2 Brier & 0.00701053 & 0.00701540\\
+\bottomrule\end{tabular}\end{center}
+\textbf{Selection.} Ranking and probability error did not improve on the more recent validation block, so the spatial extension was rejected without using 2024 results to select it. The tuned model remains the 5 mm predictor. The original experiment had already inspected 2024; although the new parameter selection did not read it, this is not an entirely unseen holdout for the researchers.
+\textbf{Prediction interface.} Station, five-minute-grid prediction time and a 0, 5 or 25 mm threshold produce an exceedance probability. The tuned calibrated pipeline is the default for 5 mm; the original validation-selected models remain for 0 and 25 mm. An explicit option selects original models for comparison. Inference still requires a prepared archived feature row and is not a real-time service; historical row eligibility depends on complete future labels. Independent targets have no guaranteed cross-threshold probability ordering. Handling unknown station codes does not establish accuracy at new stations.
+\textbf{Additional AI use.} Codex assisted supplementary experiment scripts, cloud deployment, artifact checks and bilingual report editing. Metrics come from actual full-data runs; the spatial comparison comes from cloud validation output. Group members are responsible for review, and artificial fixtures are used only for implementation checks.
+\clearpage\section*{11. AI declaration and references}
 
 \textbf{AI-use declaration.} We use OpenAI Codex to assist study design, data-processing and model code, result checks and report editing. Reported rainfall statistics and model evaluations come from actual processing and model runs; SMOTE examples are used only for training.
 
