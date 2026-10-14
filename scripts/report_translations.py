@@ -366,7 +366,11 @@ apply_full_report_content(PARAGRAPHS, PARAGRAPH_SHA256, LABELS)
 from report_tuning_content import apply as apply_tuning_content, SECTION_CN, SECTION_EN
 apply_tuning_content(PARAGRAPHS, PARAGRAPH_SHA256, LABELS)
 
+from report_grid_content import apply as apply_grid_content, translate_blocks
+apply_grid_content(PARAGRAPHS, PARAGRAPH_SHA256, LABELS)
+
 def translate(source):
+    source = translate_blocks(source)
     source = source.replace(SECTION_CN, SECTION_EN)
     lines = []
     for text in source.splitlines():

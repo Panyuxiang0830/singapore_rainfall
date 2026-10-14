@@ -56,7 +56,7 @@
   Use task2_features.NUMERIC_FEATURES/CATEGORICAL_FEATURES explicitly; never
   assemble target, future-total or audit columns as predictors.
 
-- Group report names are 潘禹翔、侯佳成、吴嘉蕊. Omit student IDs as explicitly requested.
+- Group report members: 潘禹翔 / Pan Yuxiang (A0355687J), 侯佳成 / Hou Jiacheng (A0353127J), 吴嘉蕊 / Wu Jiarui (A0262371J). Include these student IDs in both reports, as requested on 14 October.
 - Task1_Report_CN.tex / Task1_Report.tex now contain the complete project report,
   despite legacy filenames. Do not overwrite them with the legacy Task 1 generator.
 - Native model pipelines in models/ are required submission artifacts and tracked in Git.

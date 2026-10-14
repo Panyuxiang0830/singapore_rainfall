@@ -1,0 +1,68 @@
+{
+  "version": "grid_20261014",
+  "algorithm": "xgb",
+  "thresholds_mm": [
+    0,
+    5,
+    25
+  ],
+  "frozen_before_followup_test": true,
+  "selection_basis": "2022 PR-AUC/Brier tie-break; 2023 H2 Brier for raw/calibrated; uniform grid procedure requested for all targets despite slightly weaker 5mm H2 than earlier search",
+  "prior_test_exposure": "2024 previously inspected in original and 5mm experiments; current evaluation is follow-up",
+  "runs": {
+    "0": {
+      "source_run": "20261013_140710_1679_gt0",
+      "model": "final_uncalibrated",
+      "criterion": "2023 H2 Brier",
+      "threshold_mm": 0,
+      "params": {
+        "n_estimators": 100,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "reg_lambda": 5.0,
+        "max_bin": 128,
+        "min_child_weight": 20,
+        "reg_alpha": 0.0
+      },
+      "feature_set": "baseline",
+      "test_2024_read": false,
+      "inference": "Supply station_id, slot_epoch and NUMERIC_FEATURES; no label needed"
+    },
+    "5": {
+      "source_run": "20261013_161348_32718_gt5",
+      "model": "final_calibrated",
+      "criterion": "2023 H2 Brier",
+      "threshold_mm": 5,
+      "params": {
+        "n_estimators": 100,
+        "max_depth": 6,
+        "learning_rate": 0.05,
+        "reg_lambda": 5.0,
+        "max_bin": 128,
+        "min_child_weight": 20,
+        "reg_alpha": 0.0
+      },
+      "feature_set": "baseline",
+      "test_2024_read": false,
+      "inference": "Supply station_id, slot_epoch and NUMERIC_FEATURES; no label needed"
+    },
+    "25": {
+      "source_run": "20261013_182935_50388_gt25",
+      "model": "final_calibrated",
+      "criterion": "2023 H2 Brier",
+      "threshold_mm": 25,
+      "params": {
+        "n_estimators": 100,
+        "max_depth": 4,
+        "learning_rate": 0.05,
+        "reg_lambda": 5.0,
+        "max_bin": 128,
+        "min_child_weight": 20,
+        "reg_alpha": 0.0
+      },
+      "feature_set": "baseline",
+      "test_2024_read": false,
+      "inference": "Supply station_id, slot_epoch and NUMERIC_FEATURES; no label needed"
+    }
+  }
+}
