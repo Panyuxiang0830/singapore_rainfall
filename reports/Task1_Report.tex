@@ -688,7 +688,6 @@ Rainfall threshold mm & Trees & Depth & Learning rate & L2 penalty & Final proba
 25 & 100 & 4 & 0.05 & 5 & Platt calibrated & 0.03050\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{Computing environment.} Features prepared on the local Mac are uploaded to Google Compute Engine e2-highmem-8: 8 vCPUs, 64 GB configured RAM (about 62 GiB reported), a 100 GB Balanced Persistent Disk and Ubuntu 22.04.5 LTS x86\_64. The runtime uses Python 3.11, Java 17, Spark 3.5.8 and XGBoost 3.2.0; single-machine local[8], two XGBoost workers, four CPUs per task, a 6 GiB driver heap and no GPU. This configuration runs grid search, refitting, calibration and final testing; original Task 1 and algorithm-comparison environments are recorded separately.
 \clearpage\section*{8. Test results in 2024}
 \begin{center}\begin{tabular}{rllrrr}\toprule
 Threshold mm & Original algorithm & Validation-selected policy & ROC-AUC & PR-AUC & Brier\\\midrule

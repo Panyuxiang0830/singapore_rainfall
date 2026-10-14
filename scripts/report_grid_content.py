@@ -113,11 +113,7 @@ BLOCKS = [('\\clearpage\\section*{7.1. XGBoost 网格搜索与最终模型}\n'
   '5 & 100 & 6 & 0.05 & 5 & Platt 校准 & 0.25174\\\\\n'
   '25 & 100 & 4 & 0.05 & 5 & Platt 校准 & 0.03050\\\\\n'
   '\\bottomrule\\end{tabular}\\end{center}\n'
-  '\n'
-  '\\textbf{计算环境。}本地 Mac 构造的特征上传至 Google Compute Engine e2-highmem-8：8 vCPU、64 GB 配置内存（系统约 62 '
-  'GiB）、100 GB Balanced Persistent Disk、Ubuntu 22.04.5 LTS x86\\_64。Python 3.11、Java 17、Spark '
-  '3.5.8、XGBoost 3.2.0；单机 local[8]，两个 XGBoost worker，每任务 4 CPU，driver heap 6 GiB，不使用 '
-  'GPU。本配置用于网格搜索、重训、校准和最终测试；原 Task 1 与算法比较的执行环境另行记录。\n',
+  '\n',
   '\\clearpage\\section*{7.1. XGBoost grid search and final models}\n'
   '\n'
   '\\textbf{Grid design.} Fixing the XGBoost algorithm, each rainfall target traverses the full '
@@ -140,14 +136,7 @@ BLOCKS = [('\\clearpage\\section*{7.1. XGBoost 网格搜索与最终模型}\n'
   '5 & 100 & 6 & 0.05 & 5 & Platt calibrated & 0.25174\\\\\n'
   '25 & 100 & 4 & 0.05 & 5 & Platt calibrated & 0.03050\\\\\n'
   '\\bottomrule\\end{tabular}\\end{center}\n'
-  '\n'
-  '\\textbf{Computing environment.} Features prepared on the local Mac are uploaded to Google '
-  'Compute Engine e2-highmem-8: 8 vCPUs, 64 GB configured RAM (about 62 GiB reported), a 100 GB '
-  'Balanced Persistent Disk and Ubuntu 22.04.5 LTS x86\\_64. The runtime uses Python 3.11, Java '
-  '17, Spark 3.5.8 and XGBoost 3.2.0; single-machine local[8], two XGBoost workers, four CPUs per '
-  'task, a 6 GiB driver heap and no GPU. This configuration runs grid search, refitting, '
-  'calibration and final testing; original Task 1 and algorithm-comparison environments are '
-  'recorded separately.\n'),
+  '\n'),
  ('\\textbf{算法比较设置。}本节固定参数表与三种训练策略对应原 27 次算法比较，不是最终网格模型。Logistic 与 Linear SVM 使用 Spark '
   'MLlib；XGBoost 使用外部 Spark 接口。原比较的结果保留为基线，最终 XGBoost 参数在第 7.1 节给出。',
   "\\textbf{Algorithm comparison setup.} This section's fixed-parameter table and three policies "
