@@ -688,7 +688,6 @@ XGBoost / SMOTE & 0.58096 & 0.22471 & 0.03173\\
 25 & 100 & 4 & 0.05 & 5 & Platt 校准 & 0.03050\\
 \bottomrule\end{tabular}\end{center}
 
-\textbf{计算环境。}本地 Mac 构造的特征上传至 Google Compute Engine e2-highmem-8：8 vCPU、64 GB 配置内存（系统约 62 GiB）、100 GB Balanced Persistent Disk、Ubuntu 22.04.5 LTS x86\_64。Python 3.11、Java 17、Spark 3.5.8、XGBoost 3.2.0；单机 local[8]，两个 XGBoost worker，每任务 4 CPU，driver heap 6 GiB，不使用 GPU。本配置用于网格搜索、重训、校准和最终测试；原 Task 1 与算法比较的执行环境另行记录。
 \clearpage\section*{8. 2024 年测试结果}
 \begin{center}\begin{tabular}{rllrrr}\toprule
 阈值 mm & 原算法 & 验证选定策略 & ROC-AUC & PR-AUC & Brier\\\midrule
