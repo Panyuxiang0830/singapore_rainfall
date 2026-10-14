@@ -22,7 +22,7 @@
 {\large Tasks 1 and 2: Spark exploration and probability prediction, 2017--2024}\par
 \vspace{2mm}
 
-\textbf{Group members.} Pan Yuxiang, Hou Jiacheng, Wu Jiarui.
+\textbf{Group members.} Pan Yuxiang (A0355687J), Hou Jiacheng (A0353127J), Wu Jiarui (A0262371J).
 
 \textbf{Study objectives.} Using Singapore rainfall observations from 2017--2024, we analyse temporal and spatial patterns and develop models to predict the probability that station rainfall accumulated over the next 30 minutes exceeds a given threshold.
 
@@ -616,7 +616,7 @@ Add neighbours & 0.56134 & 0.17982 & 0.01713\\
 
 \endgroup
 \clearpage\section*{6. Models, imbalance and calibration}
-\textbf{Algorithm comparison setup.} This section's fixed-parameter table and three policies belong to the original 27-fit algorithm comparison, not final grid models. Logistic and Linear SVM use Spark MLlib; XGBoost uses an external Spark interface. Original results are retained as baselines; final XGBoost parameters appear in Section 6.1.
+\textbf{Algorithm comparison setup.} This section's fixed-parameter table and three policies belong to the original 27-fit algorithm comparison, not final grid models. Logistic and Linear SVM use Spark MLlib; XGBoost uses an external Spark interface. Original results are retained as baselines; final XGBoost parameters appear in Section 7.1.
 \begin{center}\begin{tabular}{p{6cm}p{17cm}}\toprule
 Model & Parameters\\\midrule
 L2 logistic (MLlib) & $\lambda=0.001$, standardization, 100 iterations, tolerance $10^{-6}$\\
@@ -630,19 +630,6 @@ XGBoost (Spark interface) & 80 trees, depth 4, learning rate 0.1, 64 bins, minim
 
 \textbf{Probability calibration.} Fit Platt calibration $\hat p=1/[1+\exp(-(az+b))]$ on 2023 H1, where $z$ is the base score and $a\geq0$. This converts SVM scores to probabilities and adjusts weighting/resampling probability scales. A group predicted near 10\% should ideally contain about 10\% actual positives.
 
-\clearpage\section*{6.1. XGBoost grid search and final models}
-
-\textbf{Grid design.} Fixing the XGBoost algorithm, each rainfall target traverses the full Cartesian product of four parameter sets: $2^4=16$ combinations per target and 48 candidate fits overall. The numbers of trees are 100 or 200, depths 4 or 6, learning rates 0.05 or 0.1, and L2 penalties 1 or 5. Fixed settings are 128 bins, minimum child weight 20, L1 penalty 0, and row/column sampling fractions 1. The 0 mm target uses natural proportions; 5 and 25 mm use class weights. Validation is chronological holdout, not random-fold cross-validation. No training rows are subsampled and no early stopping is used.
-
-\textbf{Parameter selection and refitting.} Each candidate uses all eligible 2017--2021 rows and is ranked by exact Spark PR-AUC on 2022, with Brier as tie-breaker. Preprocessing and classifiers are then refitted on all eligible 2017--2022 rows. Monotone Platt calibration fits 2023 H1; 2023 H2 selects calibrated versus uncalibrated pipelines by Brier and decision cutoffs by F1. Final models are frozen before reading this round of 2024 test results.
-\begin{center}\begin{tabular}{rrrrrlr}\toprule
-Rainfall threshold mm & Trees & Depth & Learning rate & L2 penalty & Final probabilities & 2022 PR-AUC\\\midrule
-0 & 100 & 6 & 0.05 & 5 & Uncalibrated & 0.61137\\
-5 & 100 & 6 & 0.05 & 5 & Platt calibrated & 0.25174\\
-25 & 100 & 4 & 0.05 & 5 & Platt calibrated & 0.03050\\
-\bottomrule\end{tabular}\end{center}
-
-\textbf{Computing environment.} Features prepared on the local Mac are uploaded to Google Compute Engine e2-highmem-8: 8 vCPUs, 64 GB configured RAM (about 62 GiB reported), a 100 GB Balanced Persistent Disk and Ubuntu 22.04.5 LTS x86\_64. The runtime uses Python 3.11, Java 17, Spark 3.5.8 and XGBoost 3.2.0; single-machine local[8], two XGBoost workers, four CPUs per task, a 6 GiB driver heap and no GPU. This configuration runs grid search, refitting, calibration and final testing; original Task 1 and algorithm-comparison environments are recorded separately.
 \clearpage\section*{7. Evaluation and validation selection}
 \textbf{Evaluation metrics.} ROC-AUC measures ranking, with random-ranking reference 0.5. PR-AUC combines precision and recall and is useful for rare positives; random-ranking precision is approximately prevalence $\pi$. Spark integrates both areas exactly. Brier score is mean squared probability error; lower is better.
 
@@ -663,7 +650,7 @@ XGBoost / SMOTE & 0.58096 & 0.22471 & 0.03173\\
 
 \textbf{Iteration status.} Among the nine main logistic models, 0 reach the 100-iteration cap; 9 of the nine SVM models reach that cap.
 
-\textbf{Selected models.} The original algorithm comparison selects XGBoost for all targets: natural proportions for 0 mm and class weights for 5 and 25 mm. Figures 7 and 8 retain this original comparison. The final prediction interface uniformly uses the three grid-search models in Section 6.1, with their metrics and curves presented separately below.
+\textbf{Selected models.} The original algorithm comparison selects XGBoost for all targets: natural proportions for 0 mm and class weights for 5 and 25 mm. Figures 7 and 8 retain this original comparison. The final prediction interface uniformly uses the three grid-search models in Section 7.1, with their metrics and curves presented separately below.
 
 \clearpage\section*{Figure 7: training policies on validation}
 \begin{center}\begin{tikzpicture}
@@ -689,6 +676,19 @@ XGBoost / SMOTE & 0.58096 & 0.22471 & 0.03173\\
 
 \textbf{Validation comparison.} Relative to natural-distribution training, weighting improves PR-AUC in 7 of 9 algorithm/target combinations and SMOTE in 6. Evaluate imbalance treatment by algorithm and target. Every comparison uses the same complete training period and identical validation observations.
 
+\clearpage\section*{7.1. XGBoost grid search and final models}
+
+\textbf{Grid design.} Fixing the XGBoost algorithm, each rainfall target traverses the full Cartesian product of four parameter sets: $2^4=16$ combinations per target and 48 candidate fits overall. The numbers of trees are 100 or 200, depths 4 or 6, learning rates 0.05 or 0.1, and L2 penalties 1 or 5. Fixed settings are 128 bins, minimum child weight 20, L1 penalty 0, and row/column sampling fractions 1. The 0 mm target uses natural proportions; 5 and 25 mm use class weights. Validation is chronological holdout, not random-fold cross-validation. No training rows are subsampled and no early stopping is used.
+
+\textbf{Parameter selection and refitting.} Each candidate uses all eligible 2017--2021 rows and is ranked by exact Spark PR-AUC on 2022, with Brier as tie-breaker. Preprocessing and classifiers are then refitted on all eligible 2017--2022 rows. Monotone Platt calibration fits 2023 H1; 2023 H2 selects calibrated versus uncalibrated pipelines by Brier and decision cutoffs by F1. Final models are frozen before reading this round of 2024 test results.
+\begin{center}\begin{tabular}{rrrrrlr}\toprule
+Rainfall threshold mm & Trees & Depth & Learning rate & L2 penalty & Final probabilities & 2022 PR-AUC\\\midrule
+0 & 100 & 6 & 0.05 & 5 & Uncalibrated & 0.61137\\
+5 & 100 & 6 & 0.05 & 5 & Platt calibrated & 0.25174\\
+25 & 100 & 4 & 0.05 & 5 & Platt calibrated & 0.03050\\
+\bottomrule\end{tabular}\end{center}
+
+\textbf{Computing environment.} Features prepared on the local Mac are uploaded to Google Compute Engine e2-highmem-8: 8 vCPUs, 64 GB configured RAM (about 62 GiB reported), a 100 GB Balanced Persistent Disk and Ubuntu 22.04.5 LTS x86\_64. The runtime uses Python 3.11, Java 17, Spark 3.5.8 and XGBoost 3.2.0; single-machine local[8], two XGBoost workers, four CPUs per task, a 6 GiB driver heap and no GPU. This configuration runs grid search, refitting, calibration and final testing; original Task 1 and algorithm-comparison environments are recorded separately.
 \clearpage\section*{8. Test results in 2024}
 \begin{center}\begin{tabular}{rllrrr}\toprule
 Threshold mm & Original algorithm & Validation-selected policy & ROC-AUC & PR-AUC & Brier\\\midrule

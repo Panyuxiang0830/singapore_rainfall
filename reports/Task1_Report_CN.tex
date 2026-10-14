@@ -22,7 +22,7 @@
 {\large Task 1 与 2：2017--2024 年 Spark 探索与概率预测}\par
 \vspace{2mm}
 
-\textbf{小组成员。}潘禹翔、侯佳成、吴嘉蕊。
+\textbf{小组成员。}潘禹翔（A0355687J）、侯佳成（A0353127J）、吴嘉蕊（A0262371J）。
 
 \textbf{研究内容。}本项目利用 2017--2024 年的新加坡降雨观测数据分析时间与空间变化规律，并建立模型，预测监测站在未来 30 分钟内累计雨量超过给定阈值的概率。
 
@@ -616,7 +616,7 @@ L2 Logistic 特征组 & 测试 PR-AUC：0 mm & 5 mm & 25 mm\\\midrule
 
 \endgroup
 \clearpage\section*{6. 模型、不平衡处理与概率校准}
-\textbf{算法比较设置。}本节固定参数表与三种训练策略对应原 27 次算法比较，不是最终网格模型。Logistic 与 Linear SVM 使用 Spark MLlib；XGBoost 使用外部 Spark 接口。原比较的结果保留为基线，最终 XGBoost 参数在第 6.1 节给出。
+\textbf{算法比较设置。}本节固定参数表与三种训练策略对应原 27 次算法比较，不是最终网格模型。Logistic 与 Linear SVM 使用 Spark MLlib；XGBoost 使用外部 Spark 接口。原比较的结果保留为基线，最终 XGBoost 参数在第 7.1 节给出。
 \begin{center}\begin{tabular}{p{6cm}p{17cm}}\toprule
 模型 & 参数\\\midrule
 L2 Logistic（MLlib） & $\lambda=0.001$，标准化，最大迭代 100，容差 $10^{-6}$\\
@@ -630,19 +630,6 @@ XGBoost（Spark 接口） & 80 棵树，深度 4，学习率 0.1，64 bins，最
 
 \textbf{概率校准。}利用 2023 年上半年观测拟合 Platt 函数 $\hat p=1/[1+\exp(-(az+b))]$，其中 $z$ 为基础模型分数，约束 $a\geq0$。该函数把 SVM 分数转换成概率，并调整类别加权或重采样后的概率尺度。若某组预测概率约为 10\%，理想情况下该组实际正例比例也应接近 10\%。
 
-\clearpage\section*{6.1. XGBoost 网格搜索与最终模型}
-
-\textbf{网格设计。}固定 XGBoost 算法，对每个雨量阈值独立遍历四个参数候选集合的完整笛卡尔积，共 $2^4=16$ 组，三个目标共 48 个候选拟合。树数量为 100 或 200，深度为 4 或 6，学习率为 0.05 或 0.1，L2 正则为 1 或 5。其余固定为 128 bins、最小子节点权重 20、L1 正则 0、行和列采样比例 1。0 mm 使用自然分布，5 与 25 mm 使用类别加权。使用按年份划分的验证集，而非随机折叠交叉验证；不抽样训练行，不使用 early stopping。
-
-\textbf{参数选择与重训。}每个候选使用完整 2017--2021 年数据，并按 2022 年 Spark 精确 PR-AUC 排序，Brier 作为并列判据。选定参数后，在全部 2017--2022 年记录上重新拟合预处理和分类器。2023 年上半年拟合单调 Platt 校准，下半年按 Brier 在校准与未校准管线中选择，并按 F1 选择分类判别阈值。最终模型在读取本轮 2024 年测试结果前固定。
-\begin{center}\begin{tabular}{rrrrrlr}\toprule
-雨量阈值 mm & 树数量 & 深度 & 学习率 & L2 正则 & 最终概率 & 2022 PR-AUC\\\midrule
-0 & 100 & 6 & 0.05 & 5 & 未校准 & 0.61137\\
-5 & 100 & 6 & 0.05 & 5 & Platt 校准 & 0.25174\\
-25 & 100 & 4 & 0.05 & 5 & Platt 校准 & 0.03050\\
-\bottomrule\end{tabular}\end{center}
-
-\textbf{计算环境。}本地 Mac 构造的特征上传至 Google Compute Engine e2-highmem-8：8 vCPU、64 GB 配置内存（系统约 62 GiB）、100 GB Balanced Persistent Disk、Ubuntu 22.04.5 LTS x86\_64。Python 3.11、Java 17、Spark 3.5.8、XGBoost 3.2.0；单机 local[8]，两个 XGBoost worker，每任务 4 CPU，driver heap 6 GiB，不使用 GPU。本配置用于网格搜索、重训、校准和最终测试；原 Task 1 与算法比较的执行环境另行记录。
 \clearpage\section*{7. 评价方法与验证集选择}
 \textbf{评价指标。}ROC-AUC 评价正负例排序，随机排序的参考值为 0.5。PR-AUC 综合 Precision 与 Recall，适合正例较少的目标；随机排序的 Precision 参考水平约为正例比例 $\pi$。两种面积均由 Spark 精确积分计算。Brier score 为预测概率与标签的均方差，越小越好。
 
@@ -663,7 +650,7 @@ XGBoost / SMOTE & 0.58096 & 0.22471 & 0.03173\\
 
 \textbf{迭代状态。}正式比较中，Logistic 的九个模型有 0 个达到 100 次迭代上限，SVM 的九个模型有 9 个达到该上限。
 
-\textbf{选定模型。}原算法比较在三个目标上均选择 XGBoost：0 mm 使用自然分布，5 与 25 mm 使用类别加权。图 7 和图 8 保留该原始比较。最终预测入口统一采用第 6.1 节的三个网格搜索模型，其指标和曲线在下文单独呈现。
+\textbf{选定模型。}原算法比较在三个目标上均选择 XGBoost：0 mm 使用自然分布，5 与 25 mm 使用类别加权。图 7 和图 8 保留该原始比较。最终预测入口统一采用第 7.1 节的三个网格搜索模型，其指标和曲线在下文单独呈现。
 
 \clearpage\section*{图 7：训练策略的验证集比较}
 \begin{center}\begin{tikzpicture}
@@ -689,6 +676,19 @@ XGBoost / SMOTE & 0.58096 & 0.22471 & 0.03173\\
 
 \textbf{验证比较。}相对于自然分布训练，类别加权在 9 个算法与目标组合中的 7 个组合提高 PR-AUC，SMOTE 在 6 个组合提高 PR-AUC。因此，不平衡处理的收益需要根据算法与预测目标分别评价。所有比较采用相同完整训练期与相同验证记录。
 
+\clearpage\section*{7.1. XGBoost 网格搜索与最终模型}
+
+\textbf{网格设计。}固定 XGBoost 算法，对每个雨量阈值独立遍历四个参数候选集合的完整笛卡尔积，共 $2^4=16$ 组，三个目标共 48 个候选拟合。树数量为 100 或 200，深度为 4 或 6，学习率为 0.05 或 0.1，L2 正则为 1 或 5。其余固定为 128 bins、最小子节点权重 20、L1 正则 0、行和列采样比例 1。0 mm 使用自然分布，5 与 25 mm 使用类别加权。使用按年份划分的验证集，而非随机折叠交叉验证；不抽样训练行，不使用 early stopping。
+
+\textbf{参数选择与重训。}每个候选使用完整 2017--2021 年数据，并按 2022 年 Spark 精确 PR-AUC 排序，Brier 作为并列判据。选定参数后，在全部 2017--2022 年记录上重新拟合预处理和分类器。2023 年上半年拟合单调 Platt 校准，下半年按 Brier 在校准与未校准管线中选择，并按 F1 选择分类判别阈值。最终模型在读取本轮 2024 年测试结果前固定。
+\begin{center}\begin{tabular}{rrrrrlr}\toprule
+雨量阈值 mm & 树数量 & 深度 & 学习率 & L2 正则 & 最终概率 & 2022 PR-AUC\\\midrule
+0 & 100 & 6 & 0.05 & 5 & 未校准 & 0.61137\\
+5 & 100 & 6 & 0.05 & 5 & Platt 校准 & 0.25174\\
+25 & 100 & 4 & 0.05 & 5 & Platt 校准 & 0.03050\\
+\bottomrule\end{tabular}\end{center}
+
+\textbf{计算环境。}本地 Mac 构造的特征上传至 Google Compute Engine e2-highmem-8：8 vCPU、64 GB 配置内存（系统约 62 GiB）、100 GB Balanced Persistent Disk、Ubuntu 22.04.5 LTS x86\_64。Python 3.11、Java 17、Spark 3.5.8、XGBoost 3.2.0；单机 local[8]，两个 XGBoost worker，每任务 4 CPU，driver heap 6 GiB，不使用 GPU。本配置用于网格搜索、重训、校准和最终测试；原 Task 1 与算法比较的执行环境另行记录。
 \clearpage\section*{8. 2024 年测试结果}
 \begin{center}\begin{tabular}{rllrrr}\toprule
 阈值 mm & 原算法 & 验证选定策略 & ROC-AUC & PR-AUC & Brier\\\midrule
