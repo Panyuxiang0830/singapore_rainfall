@@ -1,0 +1,17 @@
+{
+  "model": "final_calibrated",
+  "criterion": "2023 H2 Brier",
+  "threshold_mm": 5,
+  "params": {
+    "n_estimators": 100,
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "reg_lambda": 5.0,
+    "max_bin": 128,
+    "min_child_weight": 20,
+    "reg_alpha": 0.0
+  },
+  "feature_set": "baseline",
+  "test_2024_read": false,
+  "inference": "Supply station_id, slot_epoch and NUMERIC_FEATURES; no label needed"
+}

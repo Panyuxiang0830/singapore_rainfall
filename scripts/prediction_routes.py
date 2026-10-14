@@ -4,18 +4,18 @@ import json
 
 def resolve(root, model_root, threshold, algorithm=None, original=False):
     default = root / 'models/model_comparison_full'
-    tuned = root / 'models/tuned_xgb_gt5'
-    use_tuned = (threshold == 5 and algorithm in (None, 'xgb') and not original
-                 and model_root.resolve() == default.resolve())
-    if use_tuned:
-        selection = json.loads((tuned / 'final_selection.json').read_text())
+    grid = root / 'models/grid_xgb' / f'gt{threshold}'
+    use_grid = (algorithm in (None, 'xgb') and not original
+                and model_root.resolve() == default.resolve())
+    if use_grid:
+        selection = json.loads((grid / 'final_selection.json').read_text())
         name = selection['model']
-        if name not in ('final_calibrated', 'final_uncalibrated') or selection['threshold_mm'] != 5:
-            raise ValueError('Unexpected tuned model selection')
-        return dict(path=tuned / name, probability_column='probability' if name == 'final_calibrated'
-                    else 'base_probability', algorithm='xgb', policy='balanced',
+        if name not in ('final_calibrated', 'final_uncalibrated') or selection['threshold_mm'] != threshold:
+            raise ValueError('Unexpected grid model selection')
+        return dict(path=grid / name, probability_column='probability' if name == 'final_calibrated'
+                    else 'base_probability', algorithm='xgb', policy='natural' if threshold == 0 else 'balanced',
                     calibration='Monotone Platt on 2023 H1' if name == 'final_calibrated' else 'none',
-                    version='tuned_gt5_depth6_20261013')
+                    version=f'grid_gt{threshold}_20261014')
     manifest = json.loads((model_root / 'manifest.json').read_text())
     q = str(threshold)
     algo = algorithm or manifest['selected_algorithm_by_threshold'][q]

@@ -1,0 +1,262 @@
+{
+  "threshold_mm": 25,
+  "policy": "balanced",
+  "tuning_train_years": [
+    2017,
+    2018,
+    2019,
+    2020,
+    2021
+  ],
+  "tuning_validation_year": 2022,
+  "final_train_years": [
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022
+  ],
+  "calibration": "2023 H1",
+  "final_validation": "2023 H2",
+  "test_2024_read": false,
+  "subsampling": false,
+  "selection": "2022 Spark PR-AUC, Brier tie-breaker; no early stopping",
+  "feature_set": "baseline",
+  "configuration": "grid",
+  "grid": {
+    "n_estimators": [
+      100,
+      200
+    ],
+    "max_depth": [
+      4,
+      6
+    ],
+    "learning_rate": [
+      0.05,
+      0.1
+    ],
+    "reg_lambda": [
+      1.0,
+      5.0
+    ]
+  },
+  "candidate_count": 16,
+  "candidates": [
+    {
+      "name": "grid_01",
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_02",
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_03",
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_04",
+      "n_estimators": 100,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_05",
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.05,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_06",
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.05,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_07",
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_08",
+      "n_estimators": 100,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_09",
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_10",
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.05,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_11",
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_12",
+      "n_estimators": 200,
+      "max_depth": 4,
+      "learning_rate": 0.1,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_13",
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.05,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_14",
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.05,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_15",
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "reg_lambda": 1.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    },
+    {
+      "name": "grid_16",
+      "n_estimators": 200,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "reg_lambda": 5.0,
+      "max_bin": 128,
+      "min_child_weight": 20,
+      "reg_alpha": 0.0
+    }
+  ],
+  "feature_version": "asof_archive_latest90_neighbor3_v1",
+  "numeric_features": [
+    "hour_sin",
+    "hour_cos",
+    "month_sin",
+    "month_cos",
+    "hour_sin_month_sin",
+    "hour_sin_month_cos",
+    "hour_cos_month_sin",
+    "hour_cos_month_cos",
+    "station_lat",
+    "station_lon",
+    "geometry_changed",
+    "has_recent_reading",
+    "latest_age_min",
+    "latest_rain_mm",
+    "latest_wet",
+    "rain_lag_5m",
+    "rain_lag_10m",
+    "rain_lag_15m",
+    "rain_lag_30m",
+    "rain_lag_60m",
+    "rain_lag_5m_available",
+    "rain_lag_10m_available",
+    "rain_lag_15m_available",
+    "rain_lag_30m_available",
+    "rain_lag_60m_available",
+    "rain_15m",
+    "rain_30m",
+    "rain_60m",
+    "history_count_15m",
+    "history_count_30m",
+    "history_count_60m",
+    "wet_fraction_30m",
+    "max_rain_30m",
+    "rain_change_5m",
+    "rain_trend_15m",
+    "wet_streak_slots",
+    "wet_streak_censored",
+    "neighbor_available_count",
+    "neighbor_wet_fraction",
+    "neighbor_latest_mean_mm",
+    "neighbor_latest_max_mm",
+    "neighbor_30m_available_count",
+    "neighbor_30m_mean_mm",
+    "neighbor_30m_max_mm",
+    "neighbor_mean_age_min",
+    "neighbor_mean_distance_km"
+  ],
+  "cpu_threads": 8,
+  "driver_heap_gib": 6,
+  "python": "3.11.17 (main, Oct  9 2026, 15:21:28) [Clang 22.1.3 ]",
+  "spark": "3.5.8",
+  "xgboost": "3.2.0"
+}

@@ -248,6 +248,9 @@ def main():
     parser.add_argument('--benchmark-dir',type=Path,default=ROOT/'work/task2/model_comparison_full')
     parser.add_argument('--methods-only',action='store_true')
     args=parser.parse_args()
+    reviewed = ROOT / "reports/Task1_Report_CN.tex"
+    if "6.1. XGBoost 网格搜索与最终模型" in reviewed.read_text():
+        parser.error("The reviewed grid report is authoritative; use build_task1_report.py to sync English. This legacy builder would overwrite final grid results.")
     prepared=json.loads((args.baseline_dir/'preparation.json').read_text())
     baseline=json.loads((args.baseline_dir/'summary.json').read_text()) if (args.baseline_dir/'summary.json').exists() else None
     source=ROOT/'reports/Task1_Report_CN.tex';old=source.read_text()

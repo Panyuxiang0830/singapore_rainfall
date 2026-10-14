@@ -1,4 +1,4 @@
-"""Predict an archived station/time row using a validation-selected calibrated model."""
+"""Predict an archived station/time row using a frozen final grid model."""
 import argparse
 import json
 import math
@@ -20,7 +20,7 @@ def main():
     parser.add_argument('--time', required=True, help='ISO timestamp; naive times use Asia/Singapore')
     parser.add_argument('--threshold', type=int, choices=[0, 5, 25], required=True)
     parser.add_argument('--algorithm', choices=['logistic', 'svm', 'xgb'])
-    parser.add_argument('--original-model', action='store_true', help='Use original comparison models, including at 5 mm')
+    parser.add_argument('--original-model', action='store_true', help='Use original comparison models instead of final grid models')
     parser.add_argument('--features-root', type=Path, default=ROOT/'data/task2/features')
     parser.add_argument('--model-root', type=Path, default=ROOT/'models/model_comparison_full')
     args = parser.parse_args()
