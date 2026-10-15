@@ -1,0 +1,43 @@
+{
+  "n": 6374476,
+  "positives": 405430.0,
+  "prevalence": 0.06360209058752438,
+  "roc_auc": 0.8296455912385138,
+  "pr_auc": 0.5861608936345024,
+  "brier": 0.03907624112313369,
+  "log_loss": 0.16298757976504935,
+  "mean_probability": 0.06884962902323069,
+  "constant_baseline_roc_auc": 0.5,
+  "constant_baseline_pr_auc": 0.06360209058752438,
+  "constant_baseline_brier": 0.05956944793446942,
+  "probability_cutoff": 0.06998419960022735,
+  "precision": 0.6161179017876189,
+  "recall": 0.5699109587351701,
+  "f1": 0.5921143334520677,
+  "accuracy": 0.9500608363730603,
+  "confusion": {
+    "tp": 231059,
+    "fp": 143965,
+    "fn": 174371.0,
+    "tn": 5825081.0
+  },
+  "calibration_curve": [
+    {
+      "n": 5799943,
+      "mean_probability": 0.038161334573835415,
+      "observed_frequency": 0.02291436312391346
+    },
+    {
+      "n": 319324,
+      "mean_probability": 0.087424987893286,
+      "observed_frequency": 0.2654733123723867
+    },
+    {
+      "n": 255209,
+      "mean_probability": 0.7430374542092057,
+      "observed_frequency": 0.7356950577761756
+    }
+  ],
+  "evaluation_seconds": 42.23362856399763,
+  "selected_policy": "smote"
+}

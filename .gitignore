@@ -5,6 +5,7 @@ work/
 # Trained model pipelines are required deliverables and are tracked.
 __pycache__/
 *.pyc
+*.crc
 .env
 *.log
 # Generated analysis products; recreate them with the scripts.
@@ -14,6 +15,8 @@ reports/downloads/
 reports/quality/
 reports/*.json
 reports/*.jsonl
+reports/*.aux
+reports/*.out
 reports/task1_dashboard.html
 SHA256SUMS.txt
 .DS_Store

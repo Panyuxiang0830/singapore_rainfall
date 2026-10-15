@@ -825,6 +825,30 @@ Threshold mm & Real positives & Added rows & Augmented positives (\%) & Changed 
 \textbf{Earlier tuning and spatial comparison.} The earlier six-configuration 5 mm search achieved 2023 H2 PR-AUC 0.239991 and Brier 0.00701053, slightly better than final grid-model values 0.239268 and 0.00701530. The project nevertheless fixes the grid model for a uniform three-target procedure and does not claim it outperforms the earlier 5 mm model. Adding eight spatial interaction features at the earlier fixed parameters produced 2023 H2 PR-AUC 0.238817 and Brier 0.00701540, so that extension was not adopted.
 
 \textbf{Prediction interface and limitations.} Station, prediction time on the five-minute grid and a threshold of 0, 5 or 25 mm select the corresponding grid pipeline and exceedance probability; the original comparison model remains explicitly selectable. Prepared historical feature rows are still required, and their sample scope depends on complete future labels; this is not yet a live service. Targets are trained independently without cross-threshold probability monotonicity guarantees. The original experiment previously inspected 2024; this round freezes parameters and models before retesting, but remains a follow-up experiment rather than a researcher-unseen sealed test.
+
+
+
+%% DISTANCE_SUPPLEMENT_START
+\clearpage
+\section*{9.1. Supplementary experiment: distance-aware five-neighbour features}
+
+\textbf{Purpose and boundary.} This is a supplementary experiment alongside the reviewed grid-XGBoost main line. The default prediction interface and primary conclusions remain the grid models in Section 7.1. It asks whether neighbouring gauges have different predictive value when their distances differ. Every feature uses only station coordinates and five-minute readings available at the prediction time; no future rainfall, validation rows or test rows enter feature construction.
+
+\textbf{Features and training.} The original 73-dimensional tree vector receives 14 measurements/availability variables for five nearest neighbours and their 14 missingness indicators (28 dimensions), then five neighbour distances, nearest reporting-neighbour distance, inverse-distance-weighted rainfall, exponentially decayed rainfall with a 5 km scale, and their eight missingness indicators (16 dimensions), giving 117 dimensions. Distances and graph edges use station coordinates known at the time; imputation values fit on training rows only. The experiment trains on 34,542,285 eligible 2017--2022 windows, calibrates on 2023 H1, selects among 27 algorithm/class-policy candidates on 2023 H2, and evaluates frozen models on all of 2024. Full distance training ran on a Google Cloud Compute Engine Ubuntu 24.04 \texttt{e2-custom-20-65536} VM (20 vCPU, 64 GiB RAM and 200 GB persistent disk), using Python 3.11.10, Java 17.0.20.1, Spark 3.5.8 and XGBoost 3.2.0.
+
+\textbf{Frozen-model results for 2024.} XGBoost is selected for all three thresholds: natural class proportions at 0 mm and class weighting at 5 and 25 mm.
+
+\begin{center}\small
+\begin{tabular}{r|rrr|rrr}\toprule
+Threshold (mm) & Grid PR-AUC & Grid ROC-AUC & Grid Brier & Distance PR-AUC & Distance ROC-AUC & Distance Brier\\\midrule
+0 & 0.61218 & 0.88002 & 0.036127 & 0.62838 & 0.89045 & 0.035469\\
+5 & 0.22511 & 0.88159 & 0.007170 & 0.23991 & 0.89277 & 0.007079\\
+25 & 0.02118 & 0.90309 & 0.000545 & 0.02367 & 0.91855 & 0.000544\\
+\bottomrule\end{tabular}
+\end{center}
+
+\textbf{Interpretation.} In this supplementary experiment, the distance version has higher PR-AUC and ROC-AUC and lower Brier score at every threshold in 2024, so explicit distance information merits further study. The model families differ in features, parameter search and model-selection protocol; this table is a supplementary descriptive comparison, not evidence attributable to one feature or a test-set-driven replacement of the default model. The 2024 period had already been inspected in the original experiment, so this is follow-up evaluation after the specification was frozen, rather than a fully unseen sealed test.
+%% DISTANCE_SUPPLEMENT_END
 \clearpage\section*{10. AI declaration and references}
 
 \textbf{AI-use declaration.} We use OpenAI Codex to assist study design, data-processing and model code, result checks and report editing. Reported rainfall statistics and model evaluations come from actual processing and model runs; SMOTE examples are used only for training.

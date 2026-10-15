@@ -181,7 +181,7 @@ in `scripts/report_task2_content.py` / `scripts/report_translations.py` and run:
 ```bash
 # On the local submission checkout after the server run completes:
 python scripts/collect_full_training.py
-python scripts/build_full_report.py
+python scripts/build_task1_report.py
 tectonic --untrusted --outdir reports reports/Task1_Report_CN.tex
 tectonic --untrusted --outdir reports reports/Task1_Report.tex
 ```
@@ -238,3 +238,52 @@ Verified follow-up 2024 metrics (6,374,476 windows per target):
 | 0 mm | 0.61218037 | 0.88001840 | 0.03612682 |
 | 5 mm | 0.22511155 | 0.88159029 | 0.00717005 |
 | 25 mm | 0.02118424 | 0.90308515 | 0.00054482 |
+
+## Supplementary distance-aware feature experiment
+
+The frozen grid-search XGBoost models above remain the project’s **default
+prediction models**. This supplementary experiment is retained separately to
+test whether explicit inter-station distance improves the causal five-neighbour
+features. It does not replace the mainline model, CLI or reported grid-search
+selection procedure.
+
+The distance version appends 28 five-neighbour values/missingness indicators and
+16 distance-aware values/missingness indicators to the 73-dimensional tree
+vector, giving 117 dimensions. The added quantities are the five neighbour
+distances, nearest reporting-neighbour distance, inverse-distance-weighted rain,
+and exponentially decayed (5 km scale) weighted rain. Coordinates and rainfall
+readings are limited to information available at the prediction time; all
+imputation values are fitted on the 2017--2022 training period.
+
+The archived complete run uses 34,542,285 eligible windows from 2017--2022 for
+training, 2023 H1 for calibration, 2023 H2 to select among 27
+algorithm/class-policy candidates, then evaluates fixed models on 2024. Its
+assets are deliberately separate:
+
+- `experiments/cloud/`: causal five-neighbour/distance feature construction and
+  the resumable full-experiment driver;
+- `models/full_variants/distance/`: the three selected, serialised XGBoost
+  pipelines and manifest;
+- `results/distance_full/`: feature, selection, test, curve and diagnostic
+  records; and
+- `scripts/predict_distance.py`: archived-slot replay with the supplemental
+  distance model.
+
+To validate the tracked artifacts without retraining, run:
+
+```bash
+python scripts/validate_distance_supplement.py
+```
+
+To replay a prepared historical five-minute slot with this supplemental model:
+
+```bash
+python scripts/predict_distance.py \
+  --station S07 --time '2024-03-01T12:00:00+08:00' --threshold 5
+```
+
+The three distance-model 2024 scores are listed in the bilingual report’s new
+Section 9.1. They are a descriptive comparison only: the grid and distance
+experiments differ in features, parameter search and selection protocol, and
+2024 had already been inspected in the original work. No 2024 value selects or
+replaces the default grid model.

@@ -1,0 +1,293 @@
+{
+  "algorithm": "logistic",
+  "policy": "natural",
+  "threshold_mm": 0,
+  "feature_representation": "linear",
+  "vector_dimension": 206,
+  "base_fit_seconds": 674.4985241910035,
+  "iterations": 73,
+  "iteration_cap_reached": false,
+  "assembled_features": [
+    "hour_sin__filled",
+    "hour_cos__filled",
+    "month_sin__filled",
+    "month_cos__filled",
+    "hour_sin_month_sin__filled",
+    "hour_sin_month_cos__filled",
+    "hour_cos_month_sin__filled",
+    "hour_cos_month_cos__filled",
+    "station_lat__filled",
+    "station_lon__filled",
+    "has_recent_reading__filled",
+    "latest_age_min__filled",
+    "latest_rain_mm__filled",
+    "latest_wet__filled",
+    "rain_lag_5m__filled",
+    "rain_lag_10m__filled",
+    "rain_lag_15m__filled",
+    "rain_lag_30m__filled",
+    "rain_lag_60m__filled",
+    "rain_lag_5m_available__filled",
+    "rain_lag_10m_available__filled",
+    "rain_lag_15m_available__filled",
+    "rain_lag_30m_available__filled",
+    "rain_lag_60m_available__filled",
+    "rain_15m__filled",
+    "rain_30m__filled",
+    "rain_60m__filled",
+    "history_count_15m__filled",
+    "history_count_30m__filled",
+    "history_count_60m__filled",
+    "wet_fraction_30m__filled",
+    "max_rain_30m__filled",
+    "rain_change_5m__filled",
+    "rain_trend_15m__filled",
+    "wet_streak_slots__filled",
+    "wet_streak_censored__filled",
+    "neighbor_available_count__filled",
+    "neighbor_wet_fraction__filled",
+    "neighbor_latest_mean_mm__filled",
+    "neighbor_latest_max_mm__filled",
+    "neighbor_30m_available_count__filled",
+    "neighbor_30m_mean_mm__filled",
+    "neighbor_30m_max_mm__filled",
+    "neighbor_mean_age_min__filled",
+    "neighbor_mean_distance_km__filled",
+    "station_lat__missing",
+    "station_lon__missing",
+    "geometry_changed__missing",
+    "latest_age_min__missing",
+    "latest_rain_mm__missing",
+    "latest_wet__missing",
+    "rain_lag_5m__missing",
+    "rain_lag_10m__missing",
+    "rain_lag_15m__missing",
+    "rain_lag_30m__missing",
+    "rain_lag_60m__missing",
+    "rain_15m__missing",
+    "rain_30m__missing",
+    "rain_60m__missing",
+    "wet_fraction_30m__missing",
+    "max_rain_30m__missing",
+    "rain_change_5m__missing",
+    "rain_trend_15m__missing",
+    "wet_streak_slots__missing",
+    "wet_streak_censored__missing",
+    "neighbor_wet_fraction__missing",
+    "neighbor_latest_mean_mm__missing",
+    "neighbor_latest_max_mm__missing",
+    "neighbor_30m_mean_mm__missing",
+    "neighbor_30m_max_mm__missing",
+    "neighbor_mean_age_min__missing",
+    "neighbor_mean_distance_km__missing",
+    "station_vector",
+    "neighbor5_recent_count__filled",
+    "neighbor5_recent_count__missing",
+    "neighbor4_5_recent_count__filled",
+    "neighbor4_5_recent_count__missing",
+    "neighbor4_5_rain_max__filled",
+    "neighbor4_5_rain_max__missing",
+    "neighbor4_5_wet_count__filled",
+    "neighbor4_5_wet_count__missing",
+    "neighbor5_rain_change_max__filled",
+    "neighbor5_rain_change_max__missing",
+    "neighbor5_rising_count__filled",
+    "neighbor5_rising_count__missing",
+    "neighbor5_rain30_max__filled",
+    "neighbor5_rain30_max__missing",
+    "neighbor5_east_signal__filled",
+    "neighbor5_east_signal__missing",
+    "neighbor5_north_signal__filled",
+    "neighbor5_north_signal__missing",
+    "neighbor_rank1_rain__filled",
+    "neighbor_rank1_rain__missing",
+    "neighbor_rank2_rain__filled",
+    "neighbor_rank2_rain__missing",
+    "neighbor_rank3_rain__filled",
+    "neighbor_rank3_rain__missing",
+    "neighbor_rank4_rain__filled",
+    "neighbor_rank4_rain__missing",
+    "neighbor_rank5_rain__filled",
+    "neighbor_rank5_rain__missing",
+    "neighbor_rank1_distance_km__filled",
+    "neighbor_rank1_distance_km__missing",
+    "neighbor_rank2_distance_km__filled",
+    "neighbor_rank2_distance_km__missing",
+    "neighbor_rank3_distance_km__filled",
+    "neighbor_rank3_distance_km__missing",
+    "neighbor_rank4_distance_km__filled",
+    "neighbor_rank4_distance_km__missing",
+    "neighbor_rank5_distance_km__filled",
+    "neighbor_rank5_distance_km__missing",
+    "nearest_reporting_distance_km__filled",
+    "nearest_reporting_distance_km__missing",
+    "neighbor5_idw_rain__filled",
+    "neighbor5_idw_rain__missing",
+    "neighbor5_exp5km_rain__filled",
+    "neighbor5_exp5km_rain__missing"
+  ],
+  "base_params": {
+    "aggregationDepth": 2,
+    "elasticNetParam": 0.0,
+    "family": "auto",
+    "featuresCol": "features",
+    "fitIntercept": true,
+    "labelCol": "label_gt_0mm",
+    "maxBlockSizeInMB": 0.0,
+    "maxIter": 100,
+    "predictionCol": "base_pred_0",
+    "probabilityCol": "base_prob_0",
+    "rawPredictionCol": "raw_0",
+    "regParam": 0.001,
+    "standardization": true,
+    "threshold": 0.5,
+    "tol": 1e-06,
+    "weightCol": "weight"
+  },
+  "training_rows": 34542285,
+  "real_training_rows": 34542285,
+  "real_training_positives": 2074430.0,
+  "fit_runtime": {
+    "spark_master": "local[20]",
+    "task_cpus": 10,
+    "jvm_processors": 20,
+    "jvm_max_heap_gib": 6.0
+  },
+  "calibration": {
+    "slope": 1.0207639286526926,
+    "intercept": 0.27657417370213944,
+    "iterations": 7,
+    "seconds": 15.277051767996454,
+    "rows": 3325499,
+    "time_block": "2023 Jan--Jun, purged at July seam",
+    "natural_proportions": true,
+    "nonnegative_slope_constraint": true
+  },
+  "model_relative_path": "models/full_variants/distance/logistic/natural/gt_0mm",
+  "validation": {
+    "n": 3393373,
+    "positives": 197358.0,
+    "prevalence": 0.05815983094107249,
+    "roc_auc": 0.8696814424391782,
+    "pr_auc": 0.5667553158100754,
+    "brier": 0.03579468044071488,
+    "log_loss": 0.14795058757919924,
+    "mean_probability": 0.07080105303887266,
+    "constant_baseline_roc_auc": 0.5,
+    "constant_baseline_pr_auc": 0.05815983094107249,
+    "constant_baseline_brier": 0.054780855911823516,
+    "probability_cutoff": 0.16595869074375605,
+    "precision": 0.6323296449728902,
+    "recall": 0.5359701658914258,
+    "f1": 0.5801761184288108,
+    "accuracy": 0.9548870695912297,
+    "confusion": {
+      "tp": 105778,
+      "fp": 61505,
+      "fn": 91580.0,
+      "tn": 3134510.0
+    },
+    "calibration_curve": [
+      {
+        "n": 176437,
+        "mean_probability": 0.01900898520674044,
+        "observed_frequency": 0.006597255677663982
+      },
+      {
+        "n": 180808,
+        "mean_probability": 0.022531456545129884,
+        "observed_frequency": 0.008511791513649839
+      },
+      {
+        "n": 187955,
+        "mean_probability": 0.02477762745739159,
+        "observed_frequency": 0.008454151259610012
+      },
+      {
+        "n": 188939,
+        "mean_probability": 0.026637401294899703,
+        "observed_frequency": 0.008494805201678848
+      },
+      {
+        "n": 201193,
+        "mean_probability": 0.028507848661046026,
+        "observed_frequency": 0.009970525813522339
+      },
+      {
+        "n": 170542,
+        "mean_probability": 0.030373755050502042,
+        "observed_frequency": 0.011047132084765043
+      },
+      {
+        "n": 189574,
+        "mean_probability": 0.03235240491522883,
+        "observed_frequency": 0.01247533944528258
+      },
+      {
+        "n": 176835,
+        "mean_probability": 0.03466934438513586,
+        "observed_frequency": 0.014635111827409732
+      },
+      {
+        "n": 172492,
+        "mean_probability": 0.03716757498733855,
+        "observed_frequency": 0.017281960902534612
+      },
+      {
+        "n": 179866,
+        "mean_probability": 0.03983226832793949,
+        "observed_frequency": 0.01946449023161687
+      },
+      {
+        "n": 194129,
+        "mean_probability": 0.04269032928027899,
+        "observed_frequency": 0.023154706406564706
+      },
+      {
+        "n": 176697,
+        "mean_probability": 0.04547260217849601,
+        "observed_frequency": 0.027793341143313128
+      },
+      {
+        "n": 193823,
+        "mean_probability": 0.04816084507387658,
+        "observed_frequency": 0.03155972201441521
+      },
+      {
+        "n": 192669,
+        "mean_probability": 0.05098226531035824,
+        "observed_frequency": 0.03608779824465794
+      },
+      {
+        "n": 170716,
+        "mean_probability": 0.05399007177164823,
+        "observed_frequency": 0.044172778181306965
+      },
+      {
+        "n": 171699,
+        "mean_probability": 0.05772760593797909,
+        "observed_frequency": 0.055375977728466676
+      },
+      {
+        "n": 171105,
+        "mean_probability": 0.06471284944658993,
+        "observed_frequency": 0.08091522749189095
+      },
+      {
+        "n": 169791,
+        "mean_probability": 0.12460136222819437,
+        "observed_frequency": 0.18649987337373594
+      },
+      {
+        "n": 128103,
+        "mean_probability": 0.7770645945663618,
+        "observed_frequency": 0.7111464993013434
+      }
+    ],
+    "evaluation_seconds": 27.770798665995244,
+    "uncalibrated_probability_quality": {
+      "brier": 0.03586682549604785,
+      "mean_probability": 0.06192249803308446
+    }
+  }
+}
